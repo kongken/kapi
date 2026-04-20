@@ -11,6 +11,8 @@ import (
 func RegisterRoutes(r *gin.Engine, httpClient szx.HTTPDoer) {
 	szxClient := szx.NewClient(httpClient)
 
+	r.Use(corsMiddleware())
+
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status": "healthy",
@@ -31,6 +33,22 @@ func RegisterRoutes(r *gin.Engine, httpClient szx.HTTPDoer) {
 	})
 	api.GET("/szx/departures", handleSZXFlightInfo(szxClient, "departure"))
 	api.GET("/szx/arrivals", handleSZXFlightInfo(szxClient, "arrival"))
+}
+
+func corsMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		headers := c.Writer.Header()
+		headers.Set("Access-Control-Allow-Origin", "*")
+		headers.Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+		headers.Set("Access-Control-Allow-Headers", "Origin, Content-Type, Content-Length, Accept, Accept-Encoding, Authorization, X-Requested-With")
+
+		if c.Request.Method == http.MethodOptions {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+
+		c.Next()
+	}
 }
 
 func handleSZXFlightInfo(client *szx.Client, direction string) gin.HandlerFunc {
