@@ -1,0 +1,9 @@
+environment: "local"
+http_port: 8080
+
+log:
+  level: "info"
+  format: "text"
+  add_source: false
+
+otel: {}
