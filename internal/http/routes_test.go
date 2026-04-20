@@ -75,3 +75,48 @@ func TestSZXArrivalsRouteRejectsInvalidQuery(t *testing.T) {
 		t.Fatalf("expected invalid_query response, got %s", recorder.Body.String())
 	}
 }
+
+func TestRoutesIncludeCORSHeaders(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	RegisterRoutes(router, newTestHTTPClient(func(req *nethttp.Request) (*nethttp.Response, error) {
+		t.Fatal("unexpected upstream call")
+		return nil, nil
+	}))
+
+	req := httptest.NewRequest(nethttp.MethodGet, "/health", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	if got := recorder.Header().Get("Access-Control-Allow-Origin"); got != "*" {
+		t.Fatalf("expected allow origin *, got %q", got)
+	}
+	if got := recorder.Header().Get("Access-Control-Allow-Methods"); got == "" {
+		t.Fatal("expected allow methods header")
+	}
+	if got := recorder.Header().Get("Access-Control-Allow-Headers"); got == "" {
+		t.Fatal("expected allow headers header")
+	}
+}
+
+func TestOptionsPreflightHandledByCORS(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	RegisterRoutes(router, newTestHTTPClient(func(req *nethttp.Request) (*nethttp.Response, error) {
+		t.Fatal("unexpected upstream call")
+		return nil, nil
+	}))
+
+	req := httptest.NewRequest(nethttp.MethodOptions, "/api/v1/ping", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	if recorder.Code != nethttp.StatusNoContent {
+		t.Fatalf("expected status 204, got %d", recorder.Code)
+	}
+	if got := recorder.Header().Get("Access-Control-Allow-Origin"); got != "*" {
+		t.Fatalf("expected allow origin *, got %q", got)
+	}
+}
