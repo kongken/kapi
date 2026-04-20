@@ -33,6 +33,7 @@ func RegisterRoutes(r *gin.Engine, httpClient szx.HTTPDoer) {
 	})
 	api.GET("/szx/departures", handleSZXFlightInfo(szxClient, "departure"))
 	api.GET("/szx/arrivals", handleSZXFlightInfo(szxClient, "arrival"))
+	api.GET("/szx/weather", handleSZXWeather(szxClient))
 }
 
 func corsMiddleware() gin.HandlerFunc {
@@ -69,6 +70,21 @@ func handleSZXFlightInfo(client *szx.Client, direction string) gin.HandlerFunc {
 		}
 
 		response, err := client.Fetch(c.Request.Context(), direction, query)
+		if err != nil {
+			c.JSON(http.StatusBadGateway, gin.H{
+				"error":   "upstream_error",
+				"message": err.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, response)
+	}
+}
+
+func handleSZXWeather(client *szx.Client) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		response, err := client.FetchWeather(c.Request.Context())
 		if err != nil {
 			c.JSON(http.StatusBadGateway, gin.H{
 				"error":   "upstream_error",

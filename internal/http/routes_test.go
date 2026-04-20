@@ -120,3 +120,38 @@ func TestOptionsPreflightHandledByCORS(t *testing.T) {
 		t.Fatalf("expected allow origin *, got %q", got)
 	}
 }
+
+func TestSZXWeatherRoute(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	RegisterRoutes(router, newTestHTTPClient(func(req *nethttp.Request) (*nethttp.Response, error) {
+		if req.URL.Path != "/szjchbjk/weatherInterface/showWeather" {
+			t.Fatalf("unexpected weather path %q", req.URL.Path)
+		}
+		if req.URL.Query().Get("callback") != "getResult" {
+			t.Fatalf("expected callback=getResult, got %q", req.URL.Query().Get("callback"))
+		}
+
+		body := `getResult({"list":[{"date":"20260421","high":"30℃","low":"23℃","type":"多云间阴天，局地有（雷）阵雨，早晚有轻雾","img":"/app-editor/ewebeditor/uploadfile/weather_logo/04.png"}]})`
+		return &nethttp.Response{
+			StatusCode: nethttp.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(body)),
+			Header:     make(nethttp.Header),
+		}, nil
+	}))
+
+	req := httptest.NewRequest(nethttp.MethodGet, "/api/v1/szx/weather", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	if recorder.Code != nethttp.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"source":"szairport"`) {
+		t.Fatalf("expected source in response, got %s", recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"iconUrl":"https://www.szairport.com/app-editor/ewebeditor/uploadfile/weather_logo/04.png"`) {
+		t.Fatalf("expected resolved weather icon url, got %s", recorder.Body.String())
+	}
+}
