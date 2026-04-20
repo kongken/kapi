@@ -5,7 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"butterfly-starter/internal/szx"
+	"github.com/kongken/kapi/internal/szx"
 )
 
 func RegisterRoutes(r *gin.Engine, httpClient szx.HTTPDoer) {

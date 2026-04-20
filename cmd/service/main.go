@@ -8,7 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	apihttp "butterfly-starter/internal/http"
+	apihttp "github.com/kongken/kapi/internal/http"
 )
 
 func main() {

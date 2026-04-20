@@ -1,4 +1,4 @@
-module butterfly-starter
+module github.com/kongken/kapi
 
 go 1.25
 
