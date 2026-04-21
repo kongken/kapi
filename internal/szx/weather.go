@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -69,12 +70,15 @@ func (c *Client) FetchWeather(ctx context.Context) (WeatherResponse, error) {
 }
 
 func (c *Client) fetchWeatherUpstream(ctx context.Context, canRetry bool) (UpstreamWeatherResponse, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, buildWeatherURL(), nil)
+	requestURL := buildWeatherURL()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
 	if err != nil {
 		return UpstreamWeatherResponse{}, fmt.Errorf("build weather request: %w", err)
 	}
 	req.Header.Set("Accept", "*/*")
 	req.Header.Set("User-Agent", "kapi-szx/1.0")
+
+	slog.Info("requesting szairport weather upstream", "url", requestURL)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {

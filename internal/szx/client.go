@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -142,12 +143,15 @@ func (c *Client) Fetch(ctx context.Context, direction string, rawQuery Query) (R
 }
 
 func (c *Client) fetchUpstream(ctx context.Context, flag string, query Query, canRetry bool) (UpstreamResponse, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, buildURL(flag, query), nil)
+	requestURL := buildURL(flag, query)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
 	if err != nil {
 		return UpstreamResponse{}, fmt.Errorf("build upstream request: %w", err)
 	}
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", "kapi-szx/1.0")
+
+	slog.Info("requesting szairport flight upstream", "url", requestURL)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
