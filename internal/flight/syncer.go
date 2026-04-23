@@ -91,7 +91,7 @@ func (s *Syncer) syncAll(ctx context.Context) {
 
 func (s *Syncer) saveSnapshot(ctx context.Context, airportCode, direction string, data []byte) {
 	now := time.Now().UTC()
-	key := fmt.Sprintf("%s/%s/%s/%s.json",
+	key := fmt.Sprintf("flights/%s/%s/%s/%s.json",
 		airportCode, direction, now.Format("2006-01-02"), now.Format("15-04-05"))
 	s.putObject(ctx, key, data)
 }
@@ -99,7 +99,7 @@ func (s *Syncer) saveSnapshot(ctx context.Context, airportCode, direction string
 func (s *Syncer) saveLandedFlights(ctx context.Context, flights []LandedFlight) {
 	for _, f := range flights {
 		for _, fn := range f.FlightNumbers {
-			key := fmt.Sprintf("%s/%s/%s/%s.json", fn, f.Date[:4], f.Date[5:7], f.Date[8:10])
+			key := fmt.Sprintf("flights/%s/%s/%s/%s.json", fn, f.Date[:4], f.Date[5:7], f.Date[8:10])
 			s.putObject(ctx, key, f.Data)
 		}
 	}
