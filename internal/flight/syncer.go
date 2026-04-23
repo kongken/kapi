@@ -14,11 +14,23 @@ import (
 
 const s3ConfigKey = "flight"
 
+// LandedFlight represents a single flight that has landed.
+type LandedFlight struct {
+	FlightNumbers []string
+	Date          string // YYYY-MM-DD
+	Data          []byte // JSON of the individual flight
+}
+
+// FetchResult contains the full response and any landed flights extracted from it.
+type FetchResult struct {
+	Data          []byte         // Full response JSON
+	LandedFlights []LandedFlight // Individual landed flights
+}
+
 // Fetcher fetches flight data for an airport.
 // Each airport implements this interface.
-// FetchFlights returns serialized JSON for the given direction ("departure" or "arrival").
 type Fetcher interface {
-	FetchFlights(ctx context.Context, direction string) ([]byte, error)
+	FetchFlights(ctx context.Context, direction string) (*FetchResult, error)
 }
 
 type airport struct {
@@ -65,22 +77,35 @@ func (s *Syncer) StartSync(ctx context.Context, interval time.Duration) {
 func (s *Syncer) syncAll(ctx context.Context) {
 	for _, ap := range s.airports {
 		for _, direction := range []string{"departure", "arrival"} {
-			data, err := ap.fetcher.FetchFlights(ctx, direction)
+			result, err := ap.fetcher.FetchFlights(ctx, direction)
 			if err != nil {
 				slog.Error("failed to fetch flights",
 					"airport", ap.code, "direction", direction, "error", err)
 				continue
 			}
-			s.save(ctx, ap.code, direction, data)
+			s.saveSnapshot(ctx, ap.code, direction, result.Data)
+			s.saveLandedFlights(ctx, result.LandedFlights)
 		}
 	}
 }
 
-func (s *Syncer) save(ctx context.Context, airportCode, direction string, data []byte) {
+func (s *Syncer) saveSnapshot(ctx context.Context, airportCode, direction string, data []byte) {
 	now := time.Now().UTC()
 	key := fmt.Sprintf("%s/%s/%s/%s.json",
 		airportCode, direction, now.Format("2006-01-02"), now.Format("15-04-05"))
+	s.putObject(ctx, key, data)
+}
 
+func (s *Syncer) saveLandedFlights(ctx context.Context, flights []LandedFlight) {
+	for _, f := range flights {
+		for _, fn := range f.FlightNumbers {
+			key := fmt.Sprintf("%s/%s/%s/%s.json", fn, f.Date[:4], f.Date[5:7], f.Date[8:10])
+			s.putObject(ctx, key, f.Data)
+		}
+	}
+}
+
+func (s *Syncer) putObject(ctx context.Context, key string, data []byte) {
 	client := s3.GetClient(s3ConfigKey)
 	bucket := s3.GetBucket(s3ConfigKey)
 	contentType := "application/json"
@@ -92,10 +117,9 @@ func (s *Syncer) save(ctx context.Context, airportCode, direction string, data [
 		ContentType: &contentType,
 	})
 	if err != nil {
-		slog.Error("failed to save flights to s3",
-			"airport", airportCode, "direction", direction, "key", key, "error", err)
+		slog.Error("failed to save to s3", "key", key, "error", err)
 		return
 	}
 
-	slog.Info("saved flights to s3", "airport", airportCode, "direction", direction, "key", key)
+	slog.Info("saved to s3", "key", key)
 }

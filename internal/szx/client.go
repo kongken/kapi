@@ -11,6 +11,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/kongken/kapi/internal/flight"
 )
 
 const baseURL = "https://www.szairport.com/szjchbjk/hbcx/flightInfo"
@@ -274,12 +276,42 @@ func resolveLogoURL(path string) string {
 }
 
 // FetchFlights implements flight.Fetcher.
-func (c *Client) FetchFlights(ctx context.Context, direction string) ([]byte, error) {
+func (c *Client) FetchFlights(ctx context.Context, direction string) (*flight.FetchResult, error) {
 	resp, err := c.Fetch(ctx, direction, Query{})
 	if err != nil {
 		return nil, err
 	}
-	return json.Marshal(resp)
+
+	data, err := json.Marshal(resp)
+	if err != nil {
+		return nil, err
+	}
+
+	today := time.Now().UTC().Format("2006-01-02")
+	var landed []flight.LandedFlight
+	for _, f := range resp.Flights {
+		if !isLanded(f) {
+			continue
+		}
+		fdata, err := json.Marshal(f)
+		if err != nil {
+			continue
+		}
+		landed = append(landed, flight.LandedFlight{
+			FlightNumbers: f.FlightNumbers,
+			Date:          today,
+			Data:          fdata,
+		})
+	}
+
+	return &flight.FetchResult{
+		Data:          data,
+		LandedFlights: landed,
+	}, nil
+}
+
+func isLanded(f Flight) bool {
+	return f.ActualArrival != "" && f.ActualArrival != "--:--"
 }
 
 func NewDefaultClient() *Client {
