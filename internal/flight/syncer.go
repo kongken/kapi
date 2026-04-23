@@ -1,0 +1,101 @@
+package flight
+
+import (
+	"bytes"
+	"context"
+	"fmt"
+	"log/slog"
+	"time"
+
+	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
+
+	"butterfly.orx.me/core/store/s3"
+)
+
+const s3ConfigKey = "flight"
+
+// Fetcher fetches flight data for an airport.
+// Each airport implements this interface.
+// FetchFlights returns serialized JSON for the given direction ("departure" or "arrival").
+type Fetcher interface {
+	FetchFlights(ctx context.Context, direction string) ([]byte, error)
+}
+
+type airport struct {
+	code    string
+	fetcher Fetcher
+}
+
+// Syncer periodically fetches flight data from registered airports and persists to S3.
+type Syncer struct {
+	airports []airport
+}
+
+func NewSyncer() *Syncer {
+	return &Syncer{}
+}
+
+// Register adds an airport to the sync loop.
+// code is the IATA airport code (e.g. "szx", "pek"), used as the S3 key prefix.
+func (s *Syncer) Register(code string, fetcher Fetcher) {
+	s.airports = append(s.airports, airport{code: code, fetcher: fetcher})
+}
+
+// StartSync runs the sync loop. It fetches immediately on start, then every interval.
+// Blocks until ctx is cancelled.
+func (s *Syncer) StartSync(ctx context.Context, interval time.Duration) {
+	slog.Info("starting flight sync", "interval", interval, "airports", len(s.airports))
+
+	s.syncAll(ctx)
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			slog.Info("stopping flight sync")
+			return
+		case <-ticker.C:
+			s.syncAll(ctx)
+		}
+	}
+}
+
+func (s *Syncer) syncAll(ctx context.Context) {
+	for _, ap := range s.airports {
+		for _, direction := range []string{"departure", "arrival"} {
+			data, err := ap.fetcher.FetchFlights(ctx, direction)
+			if err != nil {
+				slog.Error("failed to fetch flights",
+					"airport", ap.code, "direction", direction, "error", err)
+				continue
+			}
+			s.save(ctx, ap.code, direction, data)
+		}
+	}
+}
+
+func (s *Syncer) save(ctx context.Context, airportCode, direction string, data []byte) {
+	now := time.Now().UTC()
+	key := fmt.Sprintf("%s/%s/%s/%s.json",
+		airportCode, direction, now.Format("2006-01-02"), now.Format("15-04-05"))
+
+	client := s3.GetClient(s3ConfigKey)
+	bucket := s3.GetBucket(s3ConfigKey)
+	contentType := "application/json"
+
+	_, err := client.PutObject(ctx, &awss3.PutObjectInput{
+		Bucket:      &bucket,
+		Key:         &key,
+		Body:        bytes.NewReader(data),
+		ContentType: &contentType,
+	})
+	if err != nil {
+		slog.Error("failed to save flights to s3",
+			"airport", airportCode, "direction", direction, "key", key, "error", err)
+		return
+	}
+
+	slog.Info("saved flights to s3", "airport", airportCode, "direction", direction, "key", key)
+}

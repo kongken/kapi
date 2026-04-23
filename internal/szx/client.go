@@ -273,6 +273,19 @@ func resolveLogoURL(path string) string {
 	return "https://www.szairport.com" + path
 }
 
+// FetchFlights implements flight.Fetcher.
+func (c *Client) FetchFlights(ctx context.Context, direction string) ([]byte, error) {
+	resp, err := c.Fetch(ctx, direction, Query{})
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(resp)
+}
+
+func NewDefaultClient() *Client {
+	return NewClient(http.DefaultClient)
+}
+
 func isDigitsOnly(value string) bool {
 	if value == "" {
 		return false
