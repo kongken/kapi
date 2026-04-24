@@ -2,6 +2,7 @@ package szx
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,10 +13,18 @@ import (
 	"strings"
 	"time"
 
+	bredis "butterfly.orx.me/core/store/redis"
 	"github.com/kongken/kapi/internal/flight"
+	redis "github.com/redis/go-redis/v9"
 )
 
 const baseURL = "https://www.szairport.com/szjchbjk/hbcx/flightInfo"
+
+const (
+	defaultFlightsCacheTTL = time.Minute
+	defaultRedisKey        = "default"
+	flightsCachePrefix     = "szx:flights:"
+)
 
 type HTTPDoer interface {
 	Do(req *http.Request) (*http.Response, error)
@@ -23,6 +32,17 @@ type HTTPDoer interface {
 
 type Client struct {
 	httpClient HTTPDoer
+	cache      responseCache
+	cacheTTL   time.Duration
+}
+
+type responseCache interface {
+	Get(ctx context.Context, key string) (string, error)
+	Set(ctx context.Context, key string, value string, ttl time.Duration) error
+}
+
+type redisCache struct {
+	client *redis.Client
 }
 
 type Query struct {
@@ -101,7 +121,14 @@ type Response struct {
 }
 
 func NewClient(httpClient HTTPDoer) *Client {
-	return &Client{httpClient: httpClient}
+	return NewClientWithCache(httpClient, newRedisCache(), defaultFlightsCacheTTL)
+}
+
+func NewClientWithCache(httpClient HTTPDoer, cache responseCache, cacheTTL time.Duration) *Client {
+	if cacheTTL <= 0 {
+		cacheTTL = defaultFlightsCacheTTL
+	}
+	return &Client{httpClient: httpClient, cache: cache, cacheTTL: cacheTTL}
 }
 
 func DefaultQuery(raw Query) Query {
@@ -133,6 +160,10 @@ func ValidateQuery(query Query) error {
 
 func (c *Client) Fetch(ctx context.Context, direction string, rawQuery Query) (Response, error) {
 	query := DefaultQuery(rawQuery)
+	if cached, ok := c.loadCachedResponse(ctx, direction, query); ok {
+		return cached, nil
+	}
+
 	flag, err := directionFlag(direction)
 	if err != nil {
 		return Response{}, err
@@ -141,7 +172,72 @@ func (c *Client) Fetch(ctx context.Context, direction string, rawQuery Query) (R
 	if err != nil {
 		return Response{}, err
 	}
-	return normalizeResponse(direction, query, upstream), nil
+
+	response := normalizeResponse(direction, query, upstream)
+	c.storeCachedResponse(ctx, direction, query, response)
+	return response, nil
+}
+
+func newRedisCache() responseCache {
+	client := bredis.GetClient(defaultRedisKey)
+	if client == nil {
+		return nil
+	}
+	return &redisCache{client: client}
+}
+
+func (c *redisCache) Get(ctx context.Context, key string) (string, error) {
+	return c.client.Get(ctx, key).Result()
+}
+
+func (c *redisCache) Set(ctx context.Context, key string, value string, ttl time.Duration) error {
+	return c.client.Set(ctx, key, value, ttl).Err()
+}
+
+func (c *Client) loadCachedResponse(ctx context.Context, direction string, query Query) (Response, bool) {
+	if c.cache == nil {
+		return Response{}, false
+	}
+
+	cacheKey := flightsCacheKey(direction, query)
+	value, err := c.cache.Get(ctx, cacheKey)
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return Response{}, false
+		}
+		slog.Warn("failed to load cached szx flights response", "key", cacheKey, "error", err)
+		return Response{}, false
+	}
+
+	var response Response
+	if err := json.Unmarshal([]byte(value), &response); err != nil {
+		slog.Warn("failed to decode cached szx flights response", "key", cacheKey, "error", err)
+		return Response{}, false
+	}
+
+	return response, true
+}
+
+func (c *Client) storeCachedResponse(ctx context.Context, direction string, query Query, response Response) {
+	if c.cache == nil {
+		return
+	}
+
+	payload, err := json.Marshal(response)
+	if err != nil {
+		slog.Warn("failed to encode cached szx flights response", "error", err)
+		return
+	}
+
+	cacheKey := flightsCacheKey(direction, query)
+	if err := c.cache.Set(ctx, cacheKey, string(payload), c.cacheTTL); err != nil {
+		slog.Warn("failed to store cached szx flights response", "key", cacheKey, "error", err)
+	}
+}
+
+func flightsCacheKey(direction string, query Query) string {
+	sum := sha256.Sum256([]byte(fmt.Sprintf("%s|%s|%s|%s|%s", direction, query.Type, query.CurrentDate, query.CurrentTime, query.FlightNo)))
+	return fmt.Sprintf("%s%x", flightsCachePrefix, sum)
 }
 
 func (c *Client) fetchUpstream(ctx context.Context, flag string, query Query, canRetry bool) (UpstreamResponse, error) {
