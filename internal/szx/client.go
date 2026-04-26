@@ -160,7 +160,10 @@ func ValidateQuery(query Query) error {
 
 func (c *Client) Fetch(ctx context.Context, direction string, rawQuery Query) (Response, error) {
 	query := DefaultQuery(rawQuery)
+	slog.Info("fetching szx flights", "direction", direction, "query", query)
+
 	if cached, ok := c.loadCachedResponse(ctx, direction, query); ok {
+		slog.Info("returning cached szx flights response", "direction", direction, "query", query, "total", cached.Total)
 		return cached, nil
 	}
 
@@ -174,6 +177,7 @@ func (c *Client) Fetch(ctx context.Context, direction string, rawQuery Query) (R
 	}
 
 	response := normalizeResponse(direction, query, upstream)
+	slog.Info("fetched szx flights from upstream", "direction", direction, "query", query, "total", response.Total)
 	c.storeCachedResponse(ctx, direction, query, response)
 	return response, nil
 }
@@ -181,8 +185,10 @@ func (c *Client) Fetch(ctx context.Context, direction string, rawQuery Query) (R
 func newRedisCache() responseCache {
 	client := bredis.GetClient(defaultRedisKey)
 	if client == nil {
+		slog.Warn("szx flights cache disabled: redis client not configured", "redis_key", defaultRedisKey)
 		return nil
 	}
+	slog.Info("szx flights cache enabled", "redis_key", defaultRedisKey, "ttl", defaultFlightsCacheTTL)
 	return &redisCache{client: client}
 }
 
@@ -196,6 +202,7 @@ func (c *redisCache) Set(ctx context.Context, key string, value string, ttl time
 
 func (c *Client) loadCachedResponse(ctx context.Context, direction string, query Query) (Response, bool) {
 	if c.cache == nil {
+		slog.Info("skipping szx flights cache lookup: cache unavailable", "direction", direction, "query", query)
 		return Response{}, false
 	}
 
@@ -203,6 +210,7 @@ func (c *Client) loadCachedResponse(ctx context.Context, direction string, query
 	value, err := c.cache.Get(ctx, cacheKey)
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
+			slog.Info("szx flights cache miss", "direction", direction, "query", query, "key", cacheKey)
 			return Response{}, false
 		}
 		slog.Warn("failed to load cached szx flights response", "key", cacheKey, "error", err)
@@ -215,11 +223,13 @@ func (c *Client) loadCachedResponse(ctx context.Context, direction string, query
 		return Response{}, false
 	}
 
+	slog.Info("szx flights cache hit", "direction", direction, "query", query, "key", cacheKey)
 	return response, true
 }
 
 func (c *Client) storeCachedResponse(ctx context.Context, direction string, query Query, response Response) {
 	if c.cache == nil {
+		slog.Info("skipping szx flights cache store: cache unavailable", "direction", direction, "query", query)
 		return
 	}
 
@@ -232,7 +242,10 @@ func (c *Client) storeCachedResponse(ctx context.Context, direction string, quer
 	cacheKey := flightsCacheKey(direction, query)
 	if err := c.cache.Set(ctx, cacheKey, string(payload), c.cacheTTL); err != nil {
 		slog.Warn("failed to store cached szx flights response", "key", cacheKey, "error", err)
+		return
 	}
+
+	slog.Info("stored szx flights response in cache", "direction", direction, "query", query, "key", cacheKey, "ttl", c.cacheTTL, "total", response.Total)
 }
 
 func flightsCacheKey(direction string, query Query) string {
