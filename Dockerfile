@@ -16,8 +16,8 @@ WORKDIR /root/
 COPY --from=builder /app/service ./
 COPY config.yaml ./
 
-ENV BUTTERFLY_CONFIG_TYPE=file
-ENV BUTTERFLY_CONFIG_FILE_PATH=/root/config.yaml
-ENV BUTTERFLY_TRACING_DISABLE=true
+#ENV BUTTERFLY_CONFIG_TYPE=file
+#ENV BUTTERFLY_CONFIG_FILE_PATH=/root/config.yaml
+#ENV BUTTERFLY_TRACING_DISABLE=true
 
 CMD ["./service"]
