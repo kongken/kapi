@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.10
 // 	protoc        (unknown)
-// source: airports/v2/airport_service.proto
+// source: airports/v2/flight.proto
 
 package airportsv2
 
@@ -36,7 +36,7 @@ type GetFlightsRequest struct {
 
 func (x *GetFlightsRequest) Reset() {
 	*x = GetFlightsRequest{}
-	mi := &file_airports_v2_airport_service_proto_msgTypes[0]
+	mi := &file_airports_v2_flight_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -48,7 +48,7 @@ func (x *GetFlightsRequest) String() string {
 func (*GetFlightsRequest) ProtoMessage() {}
 
 func (x *GetFlightsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_airports_v2_airport_service_proto_msgTypes[0]
+	mi := &file_airports_v2_flight_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -61,7 +61,7 @@ func (x *GetFlightsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetFlightsRequest.ProtoReflect.Descriptor instead.
 func (*GetFlightsRequest) Descriptor() ([]byte, []int) {
-	return file_airports_v2_airport_service_proto_rawDescGZIP(), []int{0}
+	return file_airports_v2_flight_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *GetFlightsRequest) GetAirport() string {
@@ -122,7 +122,7 @@ type GetFlightsResponse struct {
 
 func (x *GetFlightsResponse) Reset() {
 	*x = GetFlightsResponse{}
-	mi := &file_airports_v2_airport_service_proto_msgTypes[1]
+	mi := &file_airports_v2_flight_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -134,7 +134,7 @@ func (x *GetFlightsResponse) String() string {
 func (*GetFlightsResponse) ProtoMessage() {}
 
 func (x *GetFlightsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_airports_v2_airport_service_proto_msgTypes[1]
+	mi := &file_airports_v2_flight_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -147,7 +147,7 @@ func (x *GetFlightsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetFlightsResponse.ProtoReflect.Descriptor instead.
 func (*GetFlightsResponse) Descriptor() ([]byte, []int) {
-	return file_airports_v2_airport_service_proto_rawDescGZIP(), []int{1}
+	return file_airports_v2_flight_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *GetFlightsResponse) GetSource() string {
@@ -219,7 +219,7 @@ type FlightsQuery struct {
 
 func (x *FlightsQuery) Reset() {
 	*x = FlightsQuery{}
-	mi := &file_airports_v2_airport_service_proto_msgTypes[2]
+	mi := &file_airports_v2_flight_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -231,7 +231,7 @@ func (x *FlightsQuery) String() string {
 func (*FlightsQuery) ProtoMessage() {}
 
 func (x *FlightsQuery) ProtoReflect() protoreflect.Message {
-	mi := &file_airports_v2_airport_service_proto_msgTypes[2]
+	mi := &file_airports_v2_flight_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -244,7 +244,7 @@ func (x *FlightsQuery) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FlightsQuery.ProtoReflect.Descriptor instead.
 func (*FlightsQuery) Descriptor() ([]byte, []int) {
-	return file_airports_v2_airport_service_proto_rawDescGZIP(), []int{2}
+	return file_airports_v2_flight_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *FlightsQuery) GetDirection() string {
@@ -308,7 +308,7 @@ type Flight struct {
 
 func (x *Flight) Reset() {
 	*x = Flight{}
-	mi := &file_airports_v2_airport_service_proto_msgTypes[3]
+	mi := &file_airports_v2_flight_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -320,7 +320,7 @@ func (x *Flight) String() string {
 func (*Flight) ProtoMessage() {}
 
 func (x *Flight) ProtoReflect() protoreflect.Message {
-	mi := &file_airports_v2_airport_service_proto_msgTypes[3]
+	mi := &file_airports_v2_flight_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -333,7 +333,7 @@ func (x *Flight) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Flight.ProtoReflect.Descriptor instead.
 func (*Flight) Descriptor() ([]byte, []int) {
-	return file_airports_v2_airport_service_proto_rawDescGZIP(), []int{3}
+	return file_airports_v2_flight_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *Flight) GetFlightNumbers() []string {
@@ -462,267 +462,11 @@ func (x *Flight) GetRaw() *structpb.Struct {
 	return nil
 }
 
-type GetWeatherRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Airport       string                 `protobuf:"bytes,1,opt,name=airport,proto3" json:"airport,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
+var File_airports_v2_flight_proto protoreflect.FileDescriptor
 
-func (x *GetWeatherRequest) Reset() {
-	*x = GetWeatherRequest{}
-	mi := &file_airports_v2_airport_service_proto_msgTypes[4]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetWeatherRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetWeatherRequest) ProtoMessage() {}
-
-func (x *GetWeatherRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_airports_v2_airport_service_proto_msgTypes[4]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetWeatherRequest.ProtoReflect.Descriptor instead.
-func (*GetWeatherRequest) Descriptor() ([]byte, []int) {
-	return file_airports_v2_airport_service_proto_rawDescGZIP(), []int{4}
-}
-
-func (x *GetWeatherRequest) GetAirport() string {
-	if x != nil {
-		return x.Airport
-	}
-	return ""
-}
-
-type GetWeatherResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Source        string                 `protobuf:"bytes,1,opt,name=source,proto3" json:"source,omitempty"`
-	Airport       string                 `protobuf:"bytes,2,opt,name=airport,proto3" json:"airport,omitempty"`
-	Resource      string                 `protobuf:"bytes,3,opt,name=resource,proto3" json:"resource,omitempty"`
-	Query         *WeatherQuery          `protobuf:"bytes,4,opt,name=query,proto3" json:"query,omitempty"`
-	Total         int32                  `protobuf:"varint,5,opt,name=total,proto3" json:"total,omitempty"`
-	Items         []*Weather             `protobuf:"bytes,6,rep,name=items,proto3" json:"items,omitempty"`
-	Raw           *structpb.Struct       `protobuf:"bytes,7,opt,name=raw,proto3" json:"raw,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetWeatherResponse) Reset() {
-	*x = GetWeatherResponse{}
-	mi := &file_airports_v2_airport_service_proto_msgTypes[5]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetWeatherResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetWeatherResponse) ProtoMessage() {}
-
-func (x *GetWeatherResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_airports_v2_airport_service_proto_msgTypes[5]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetWeatherResponse.ProtoReflect.Descriptor instead.
-func (*GetWeatherResponse) Descriptor() ([]byte, []int) {
-	return file_airports_v2_airport_service_proto_rawDescGZIP(), []int{5}
-}
-
-func (x *GetWeatherResponse) GetSource() string {
-	if x != nil {
-		return x.Source
-	}
-	return ""
-}
-
-func (x *GetWeatherResponse) GetAirport() string {
-	if x != nil {
-		return x.Airport
-	}
-	return ""
-}
-
-func (x *GetWeatherResponse) GetResource() string {
-	if x != nil {
-		return x.Resource
-	}
-	return ""
-}
-
-func (x *GetWeatherResponse) GetQuery() *WeatherQuery {
-	if x != nil {
-		return x.Query
-	}
-	return nil
-}
-
-func (x *GetWeatherResponse) GetTotal() int32 {
-	if x != nil {
-		return x.Total
-	}
-	return 0
-}
-
-func (x *GetWeatherResponse) GetItems() []*Weather {
-	if x != nil {
-		return x.Items
-	}
-	return nil
-}
-
-func (x *GetWeatherResponse) GetRaw() *structpb.Struct {
-	if x != nil {
-		return x.Raw
-	}
-	return nil
-}
-
-type WeatherQuery struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *WeatherQuery) Reset() {
-	*x = WeatherQuery{}
-	mi := &file_airports_v2_airport_service_proto_msgTypes[6]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *WeatherQuery) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*WeatherQuery) ProtoMessage() {}
-
-func (x *WeatherQuery) ProtoReflect() protoreflect.Message {
-	mi := &file_airports_v2_airport_service_proto_msgTypes[6]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use WeatherQuery.ProtoReflect.Descriptor instead.
-func (*WeatherQuery) Descriptor() ([]byte, []int) {
-	return file_airports_v2_airport_service_proto_rawDescGZIP(), []int{6}
-}
-
-type Weather struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Date          string                 `protobuf:"bytes,1,opt,name=date,proto3" json:"date,omitempty"`
-	High          string                 `protobuf:"bytes,2,opt,name=high,proto3" json:"high,omitempty"`
-	Low           string                 `protobuf:"bytes,3,opt,name=low,proto3" json:"low,omitempty"`
-	Type          string                 `protobuf:"bytes,4,opt,name=type,proto3" json:"type,omitempty"`
-	IconUrl       string                 `protobuf:"bytes,5,opt,name=icon_url,json=iconUrl,proto3" json:"icon_url,omitempty"`
-	Raw           *structpb.Struct       `protobuf:"bytes,6,opt,name=raw,proto3" json:"raw,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *Weather) Reset() {
-	*x = Weather{}
-	mi := &file_airports_v2_airport_service_proto_msgTypes[7]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *Weather) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Weather) ProtoMessage() {}
-
-func (x *Weather) ProtoReflect() protoreflect.Message {
-	mi := &file_airports_v2_airport_service_proto_msgTypes[7]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Weather.ProtoReflect.Descriptor instead.
-func (*Weather) Descriptor() ([]byte, []int) {
-	return file_airports_v2_airport_service_proto_rawDescGZIP(), []int{7}
-}
-
-func (x *Weather) GetDate() string {
-	if x != nil {
-		return x.Date
-	}
-	return ""
-}
-
-func (x *Weather) GetHigh() string {
-	if x != nil {
-		return x.High
-	}
-	return ""
-}
-
-func (x *Weather) GetLow() string {
-	if x != nil {
-		return x.Low
-	}
-	return ""
-}
-
-func (x *Weather) GetType() string {
-	if x != nil {
-		return x.Type
-	}
-	return ""
-}
-
-func (x *Weather) GetIconUrl() string {
-	if x != nil {
-		return x.IconUrl
-	}
-	return ""
-}
-
-func (x *Weather) GetRaw() *structpb.Struct {
-	if x != nil {
-		return x.Raw
-	}
-	return nil
-}
-
-var File_airports_v2_airport_service_proto protoreflect.FileDescriptor
-
-const file_airports_v2_airport_service_proto_rawDesc = "" +
+const file_airports_v2_flight_proto_rawDesc = "" +
 	"\n" +
-	"!airports/v2/airport_service.proto\x12\vairports.v2\x1a\x1cgoogle/protobuf/struct.proto\"\xa4\x01\n" +
+	"\x18airports/v2/flight.proto\x12\vairports.v2\x1a\x1cgoogle/protobuf/struct.proto\"\xa4\x01\n" +
 	"\x11GetFlightsRequest\x12\x18\n" +
 	"\aairport\x18\x01 \x01(\tR\aairport\x12\x1c\n" +
 	"\tdirection\x18\x02 \x01(\tR\tdirection\x12\x12\n" +
@@ -766,95 +510,60 @@ const file_airports_v2_airport_service_proto_rawDesc = "" +
 	"\vstatus_code\x18\x10 \x01(\tR\n" +
 	"statusCode\x12#\n" +
 	"\raircraft_type\x18\x11 \x01(\tR\faircraftType\x12)\n" +
-	"\x03raw\x18\x12 \x01(\v2\x17.google.protobuf.StructR\x03raw\"-\n" +
-	"\x11GetWeatherRequest\x12\x18\n" +
-	"\aairport\x18\x01 \x01(\tR\aairport\"\x80\x02\n" +
-	"\x12GetWeatherResponse\x12\x16\n" +
-	"\x06source\x18\x01 \x01(\tR\x06source\x12\x18\n" +
-	"\aairport\x18\x02 \x01(\tR\aairport\x12\x1a\n" +
-	"\bresource\x18\x03 \x01(\tR\bresource\x12/\n" +
-	"\x05query\x18\x04 \x01(\v2\x19.airports.v2.WeatherQueryR\x05query\x12\x14\n" +
-	"\x05total\x18\x05 \x01(\x05R\x05total\x12*\n" +
-	"\x05items\x18\x06 \x03(\v2\x14.airports.v2.WeatherR\x05items\x12)\n" +
-	"\x03raw\x18\a \x01(\v2\x17.google.protobuf.StructR\x03raw\"\x0e\n" +
-	"\fWeatherQuery\"\x9d\x01\n" +
-	"\aWeather\x12\x12\n" +
-	"\x04date\x18\x01 \x01(\tR\x04date\x12\x12\n" +
-	"\x04high\x18\x02 \x01(\tR\x04high\x12\x10\n" +
-	"\x03low\x18\x03 \x01(\tR\x03low\x12\x12\n" +
-	"\x04type\x18\x04 \x01(\tR\x04type\x12\x19\n" +
-	"\bicon_url\x18\x05 \x01(\tR\aiconUrl\x12)\n" +
-	"\x03raw\x18\x06 \x01(\v2\x17.google.protobuf.StructR\x03raw2\xae\x01\n" +
-	"\x0eAirportService\x12M\n" +
-	"\n" +
-	"GetFlights\x12\x1e.airports.v2.GetFlightsRequest\x1a\x1f.airports.v2.GetFlightsResponse\x12M\n" +
-	"\n" +
-	"GetWeather\x12\x1e.airports.v2.GetWeatherRequest\x1a\x1f.airports.v2.GetWeatherResponseB:Z8github.com/kongken/kapi/pkg/proto/airports/v2;airportsv2b\x06proto3"
+	"\x03raw\x18\x12 \x01(\v2\x17.google.protobuf.StructR\x03rawB:Z8github.com/kongken/kapi/pkg/proto/airports/v2;airportsv2b\x06proto3"
 
 var (
-	file_airports_v2_airport_service_proto_rawDescOnce sync.Once
-	file_airports_v2_airport_service_proto_rawDescData []byte
+	file_airports_v2_flight_proto_rawDescOnce sync.Once
+	file_airports_v2_flight_proto_rawDescData []byte
 )
 
-func file_airports_v2_airport_service_proto_rawDescGZIP() []byte {
-	file_airports_v2_airport_service_proto_rawDescOnce.Do(func() {
-		file_airports_v2_airport_service_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_airports_v2_airport_service_proto_rawDesc), len(file_airports_v2_airport_service_proto_rawDesc)))
+func file_airports_v2_flight_proto_rawDescGZIP() []byte {
+	file_airports_v2_flight_proto_rawDescOnce.Do(func() {
+		file_airports_v2_flight_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_airports_v2_flight_proto_rawDesc), len(file_airports_v2_flight_proto_rawDesc)))
 	})
-	return file_airports_v2_airport_service_proto_rawDescData
+	return file_airports_v2_flight_proto_rawDescData
 }
 
-var file_airports_v2_airport_service_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
-var file_airports_v2_airport_service_proto_goTypes = []any{
+var file_airports_v2_flight_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_airports_v2_flight_proto_goTypes = []any{
 	(*GetFlightsRequest)(nil),  // 0: airports.v2.GetFlightsRequest
 	(*GetFlightsResponse)(nil), // 1: airports.v2.GetFlightsResponse
 	(*FlightsQuery)(nil),       // 2: airports.v2.FlightsQuery
 	(*Flight)(nil),             // 3: airports.v2.Flight
-	(*GetWeatherRequest)(nil),  // 4: airports.v2.GetWeatherRequest
-	(*GetWeatherResponse)(nil), // 5: airports.v2.GetWeatherResponse
-	(*WeatherQuery)(nil),       // 6: airports.v2.WeatherQuery
-	(*Weather)(nil),            // 7: airports.v2.Weather
-	(*structpb.Struct)(nil),    // 8: google.protobuf.Struct
+	(*structpb.Struct)(nil),    // 4: google.protobuf.Struct
 }
-var file_airports_v2_airport_service_proto_depIdxs = []int32{
-	2,  // 0: airports.v2.GetFlightsResponse.query:type_name -> airports.v2.FlightsQuery
-	3,  // 1: airports.v2.GetFlightsResponse.items:type_name -> airports.v2.Flight
-	8,  // 2: airports.v2.GetFlightsResponse.raw:type_name -> google.protobuf.Struct
-	8,  // 3: airports.v2.Flight.raw:type_name -> google.protobuf.Struct
-	6,  // 4: airports.v2.GetWeatherResponse.query:type_name -> airports.v2.WeatherQuery
-	7,  // 5: airports.v2.GetWeatherResponse.items:type_name -> airports.v2.Weather
-	8,  // 6: airports.v2.GetWeatherResponse.raw:type_name -> google.protobuf.Struct
-	8,  // 7: airports.v2.Weather.raw:type_name -> google.protobuf.Struct
-	0,  // 8: airports.v2.AirportService.GetFlights:input_type -> airports.v2.GetFlightsRequest
-	4,  // 9: airports.v2.AirportService.GetWeather:input_type -> airports.v2.GetWeatherRequest
-	1,  // 10: airports.v2.AirportService.GetFlights:output_type -> airports.v2.GetFlightsResponse
-	5,  // 11: airports.v2.AirportService.GetWeather:output_type -> airports.v2.GetWeatherResponse
-	10, // [10:12] is the sub-list for method output_type
-	8,  // [8:10] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+var file_airports_v2_flight_proto_depIdxs = []int32{
+	2, // 0: airports.v2.GetFlightsResponse.query:type_name -> airports.v2.FlightsQuery
+	3, // 1: airports.v2.GetFlightsResponse.items:type_name -> airports.v2.Flight
+	4, // 2: airports.v2.GetFlightsResponse.raw:type_name -> google.protobuf.Struct
+	4, // 3: airports.v2.Flight.raw:type_name -> google.protobuf.Struct
+	4, // [4:4] is the sub-list for method output_type
+	4, // [4:4] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
-func init() { file_airports_v2_airport_service_proto_init() }
-func file_airports_v2_airport_service_proto_init() {
-	if File_airports_v2_airport_service_proto != nil {
+func init() { file_airports_v2_flight_proto_init() }
+func file_airports_v2_flight_proto_init() {
+	if File_airports_v2_flight_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_airports_v2_airport_service_proto_rawDesc), len(file_airports_v2_airport_service_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_airports_v2_flight_proto_rawDesc), len(file_airports_v2_flight_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   4,
 			NumExtensions: 0,
-			NumServices:   1,
+			NumServices:   0,
 		},
-		GoTypes:           file_airports_v2_airport_service_proto_goTypes,
-		DependencyIndexes: file_airports_v2_airport_service_proto_depIdxs,
-		MessageInfos:      file_airports_v2_airport_service_proto_msgTypes,
+		GoTypes:           file_airports_v2_flight_proto_goTypes,
+		DependencyIndexes: file_airports_v2_flight_proto_depIdxs,
+		MessageInfos:      file_airports_v2_flight_proto_msgTypes,
 	}.Build()
-	File_airports_v2_airport_service_proto = out.File
-	file_airports_v2_airport_service_proto_goTypes = nil
-	file_airports_v2_airport_service_proto_depIdxs = nil
+	File_airports_v2_flight_proto = out.File
+	file_airports_v2_flight_proto_goTypes = nil
+	file_airports_v2_flight_proto_depIdxs = nil
 }

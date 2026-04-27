@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.1
 // - protoc             (unknown)
-// source: airports/v2/airport_service.proto
+// source: airports/v2/service.proto
 
 package airportsv2
 
@@ -165,5 +165,5 @@ var AirportService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "airports/v2/airport_service.proto",
+	Metadata: "airports/v2/service.proto",
 }

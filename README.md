@@ -51,7 +51,9 @@ This repository now uses `protobuf + buf` to manage the next-generation airport 
 
 - `buf.yaml`: buf module and lint/breaking rules
 - `buf.gen.yaml`: Go, gRPC, and Connect code generation
-- `proto/airports/v2/airport_service.proto`: initial `/api/v2` contract
+- proto/airports/v2/service.proto: airport service definition
+- proto/airports/v2/flight.proto: flight request and response messages
+- proto/airports/v2/weather.proto: weather request and response messages
 
 Current v2 API contract:
 

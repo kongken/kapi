@@ -6,15 +6,6 @@ import "google/protobuf/struct.proto";
 
 option go_package = "github.com/kongken/kapi/pkg/proto/airports/v2;airportsv2";
 
-// AirportService defines the v2 airport API contract.
-// Planned HTTP mapping:
-// - /api/v2/airports/{airport}/flights
-// - /api/v2/airports/{airport}/weather
-service AirportService {
-  rpc GetFlights(GetFlightsRequest) returns (GetFlightsResponse);
-  rpc GetWeather(GetWeatherRequest) returns (GetWeatherResponse);
-}
-
 message GetFlightsRequest {
   string airport = 1;
   string direction = 2;
@@ -62,29 +53,4 @@ message Flight {
   string status_code = 16;
   string aircraft_type = 17;
   google.protobuf.Struct raw = 18;
-}
-
-message GetWeatherRequest {
-  string airport = 1;
-}
-
-message GetWeatherResponse {
-  string source = 1;
-  string airport = 2;
-  string resource = 3;
-  WeatherQuery query = 4;
-  int32 total = 5;
-  repeated Weather items = 6;
-  google.protobuf.Struct raw = 7;
-}
-
-message WeatherQuery {}
-
-message Weather {
-  string date = 1;
-  string high = 2;
-  string low = 3;
-  string type = 4;
-  string icon_url = 5;
-  google.protobuf.Struct raw = 6;
 }
