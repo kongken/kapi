@@ -5,11 +5,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/kongken/kapi/internal/airports"
 	"github.com/kongken/kapi/internal/szx"
 )
 
 func RegisterRoutes(r *gin.Engine, httpClient szx.HTTPDoer) {
 	szxClient := szx.NewClient(httpClient)
+	registry := airports.NewRegistry(airports.NewSZXProvider(httpClient))
 
 	r.Use(corsMiddleware())
 
@@ -25,15 +27,20 @@ func RegisterRoutes(r *gin.Engine, httpClient szx.HTTPDoer) {
 		})
 	})
 
-	api := r.Group("/api/v1")
-	api.GET("/ping", func(c *gin.Context) {
+	api := r.Group("/api")
+	v1 := api.Group("/v1")
+	v1.GET("/ping", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"message": "pong",
 		})
 	})
-	api.GET("/szx/departures", handleSZXFlightInfo(szxClient, "departure"))
-	api.GET("/szx/arrivals", handleSZXFlightInfo(szxClient, "arrival"))
-	api.GET("/szx/weather", handleSZXWeather(szxClient))
+	v1.GET("/szx/departures", handleSZXFlightInfo(szxClient, "departure"))
+	v1.GET("/szx/arrivals", handleSZXFlightInfo(szxClient, "arrival"))
+	v1.GET("/szx/weather", handleSZXWeather(szxClient))
+
+	v2 := api.Group("/v2")
+	v2.GET("/airports/:airport/flights", handleAirportFlights(registry))
+	v2.GET("/airports/:airport/weather", handleAirportWeather(registry))
 }
 
 func corsMiddleware() gin.HandlerFunc {
@@ -49,6 +56,69 @@ func corsMiddleware() gin.HandlerFunc {
 		}
 
 		c.Next()
+	}
+}
+
+func handleAirportFlights(registry *airports.Registry) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		provider, ok := registry.Get(c.Param("airport"))
+		if !ok {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error":   "airport_not_supported",
+				"message": "airport provider not found",
+			})
+			return
+		}
+
+		query := airports.FlightQuery{
+			Direction: c.Query("direction"),
+			Lang:      c.DefaultQuery("lang", "cn"),
+			Date:      c.Query("date"),
+			Time:      c.Query("time"),
+			FlightNo:  c.Query("flightNo"),
+		}
+		if err := airports.ValidateFlightQuery(query); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error":   "invalid_query",
+				"message": err.Error(),
+			})
+			return
+		}
+
+		response, err := provider.GetFlights(c.Request.Context(), query)
+		if err != nil {
+			c.JSON(http.StatusBadGateway, gin.H{
+				"error":   "upstream_error",
+				"message": err.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, response)
+	}
+}
+
+func handleAirportWeather(registry *airports.Registry) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		provider, ok := registry.Get(c.Param("airport"))
+		if !ok {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error":   "airport_not_supported",
+				"message": "airport provider not found",
+			})
+			return
+		}
+
+		response, err := provider.GetWeather(c.Request.Context())
+		if err != nil {
+			c.JSON(http.StatusBadGateway, gin.H{
+				"error":   "upstream_error",
+				"message": err.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, response)
 	}
 }
 

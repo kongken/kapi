@@ -1,7 +1,7 @@
 butterfly.orx.me/core v0.0.0-20260419055229-c694bd46473e h1:P1m0xMqZhkW5Cl/ZveznjsjFUdyj0En80QWB7JFf4iA=
 butterfly.orx.me/core v0.0.0-20260419055229-c694bd46473e/go.mod h1:vxf18fxuDVo59gyAiCiEnHhkZFcMcevxQubRCilAPVM=
-butterfly.orx.me/core v0.0.0-20260427155459-f3485be49e45 h1:X6Egok5+mXVhW+TazpnLuQjl4fpfmq5o5hSmtrZRvIs=
-butterfly.orx.me/core v0.0.0-20260427155459-f3485be49e45/go.mod h1:vxf18fxuDVo59gyAiCiEnHhkZFcMcevxQubRCilAPVM=
+connectrpc.com/connect v1.19.2 h1:McQ83FGdzL+t60peksi0gXC7MQ/iLKgLduAnThbM0mo=
+connectrpc.com/connect v1.19.2/go.mod h1:tN20fjdGlewnSFeZxLKb0xwIZ6ozc3OQs2hTXy4du9w=
 github.com/DataDog/datadog-go v3.2.0+incompatible/go.mod h1:LButxg5PwREeZtORoXG3tL4fMGNddJ+vMq1mwgfaqoQ=
 github.com/alecthomas/template v0.0.0-20160405071501-a0175ee3bccc/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=
 github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=

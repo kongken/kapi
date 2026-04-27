@@ -55,6 +55,65 @@ func TestSZXDeparturesRoute(t *testing.T) {
 	}
 }
 
+func TestV2AirportFlightsRoute(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	RegisterRoutes(router, newTestHTTPClient(func(req *nethttp.Request) (*nethttp.Response, error) {
+		if req.URL.Query().Get("flag") != "A" {
+			t.Fatalf("expected arrival flag A, got %q", req.URL.Query().Get("flag"))
+		}
+		if req.URL.Query().Get("type") != "en" {
+			t.Fatalf("expected type=en, got %q", req.URL.Query().Get("type"))
+		}
+
+		body := `{"flightList":[{"startSchemeTakeoffTime":"16:00","terminalSchemeLandinTime":"18:40","startRealTakeoffTime":"16:12","terminalRealLandinTime":"--:--","hbh":[{"flightNo":"CA1303"}],"shareflightairport":[{"imgSrc":"/app-editor/ewebeditor/uploadfile/airlineslogo/CA.png"}],"gateCode":"524","gatedesp":"Near lounge","startStationThreecharcode":"Beijing","terminalStationThreecharcode":"Shenzhen","fltNormalStatus":"LANDED","fltNormalStatus2":"L","ckls":"","fces_fcee":"","apot":"T3","blls":"7","craftType":"B738"}],"type":"en","currentDate":1,"currentTime":8,"hbxx_hbh":"CA1303"}`
+		return &nethttp.Response{
+			StatusCode: nethttp.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(body)),
+			Header:     make(nethttp.Header),
+		}, nil
+	}))
+
+	req := httptest.NewRequest(nethttp.MethodGet, "/api/v2/airports/szx/flights?direction=arrival&lang=en&flightNo=CA1303", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	if recorder.Code != nethttp.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"airport":"szx"`) {
+		t.Fatalf("expected airport code, got %s", recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"resource":"flights"`) {
+		t.Fatalf("expected flights resource, got %s", recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"direction":"arrival"`) {
+		t.Fatalf("expected arrival direction, got %s", recorder.Body.String())
+	}
+}
+
+func TestV2AirportFlightsRouteRejectsUnknownAirport(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	RegisterRoutes(router, newTestHTTPClient(func(req *nethttp.Request) (*nethttp.Response, error) {
+		t.Fatal("unexpected upstream call")
+		return nil, nil
+	}))
+
+	req := httptest.NewRequest(nethttp.MethodGet, "/api/v2/airports/pek/flights?direction=departure", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	if recorder.Code != nethttp.StatusNotFound {
+		t.Fatalf("expected status 404, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"error":"airport_not_supported"`) {
+		t.Fatalf("expected airport_not_supported response, got %s", recorder.Body.String())
+	}
+}
+
 func TestSZXArrivalsRouteRejectsInvalidQuery(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

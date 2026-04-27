@@ -1,0 +1,90 @@
+syntax = "proto3";
+
+package airports.v2;
+
+import "google/protobuf/struct.proto";
+
+option go_package = "github.com/kongken/kapi/pkg/proto/airports/v2;airportsv2";
+
+// AirportService defines the v2 airport API contract.
+// Planned HTTP mapping:
+// - /api/v2/airports/{airport}/flights
+// - /api/v2/airports/{airport}/weather
+service AirportService {
+  rpc GetFlights(GetFlightsRequest) returns (GetFlightsResponse);
+  rpc GetWeather(GetWeatherRequest) returns (GetWeatherResponse);
+}
+
+message GetFlightsRequest {
+  string airport = 1;
+  string direction = 2;
+  string lang = 3;
+  string date = 4;
+  string time = 5;
+  string flight_no = 6;
+}
+
+message GetFlightsResponse {
+  string source = 1;
+  string airport = 2;
+  string resource = 3;
+  string direction = 4;
+  FlightsQuery query = 5;
+  int32 total = 6;
+  repeated Flight items = 7;
+  google.protobuf.Struct raw = 8;
+}
+
+message FlightsQuery {
+  string direction = 1;
+  string lang = 2;
+  string date = 3;
+  string time = 4;
+  string flight_no = 5;
+}
+
+message Flight {
+  repeated string flight_numbers = 1;
+  repeated string airline_logos = 2;
+  string planned_departure_time = 3;
+  string planned_arrival_time = 4;
+  string actual_departure_time = 5;
+  string actual_arrival_time = 6;
+  string departure_airport = 7;
+  string arrival_airport = 8;
+  string terminal = 9;
+  string gate = 10;
+  string gate_description = 11;
+  string baggage_belt = 12;
+  string check_in_area = 13;
+  string check_in_window = 14;
+  string status_text = 15;
+  string status_code = 16;
+  string aircraft_type = 17;
+  google.protobuf.Struct raw = 18;
+}
+
+message GetWeatherRequest {
+  string airport = 1;
+}
+
+message GetWeatherResponse {
+  string source = 1;
+  string airport = 2;
+  string resource = 3;
+  WeatherQuery query = 4;
+  int32 total = 5;
+  repeated Weather items = 6;
+  google.protobuf.Struct raw = 7;
+}
+
+message WeatherQuery {}
+
+message Weather {
+  string date = 1;
+  string high = 2;
+  string low = 3;
+  string type = 4;
+  string icon_url = 5;
+  google.protobuf.Struct raw = 6;
+}
