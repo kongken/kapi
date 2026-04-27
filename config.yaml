@@ -12,6 +12,11 @@ szx:
   sync_interval: "5m"
 
 store:
+  redis:
+    default:
+      addr: "127.0.0.1:6379"
+      password: ""
+      db: 0
   s3:
     flight:
       endpoint: ""
