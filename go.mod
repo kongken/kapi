@@ -3,7 +3,7 @@ module github.com/kongken/kapi
 go 1.25.0
 
 require (
-	butterfly.orx.me/core v0.0.0-20260419055229-c694bd46473e
+	butterfly.orx.me/core v0.0.0-20260427155459-f3485be49e45
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.97.1
 	github.com/gin-gonic/gin v1.10.1
 )
