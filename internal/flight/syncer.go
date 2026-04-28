@@ -139,8 +139,9 @@ func (s *Syncer) saveSnapshot(ctx context.Context, airportCode, direction string
 }
 
 func (s *Syncer) saveDailySnapshot(ctx context.Context, airportCode string, direction string, data []byte) {
-	key := DailySnapshotKey(airportCode, direction, time.Now())
-	s.putObject(ctx, key, data)
+	now := time.Now()
+	s.putObject(ctx, DailySnapshotLatestKey(airportCode, direction, now), data)
+	s.putObject(ctx, DailySnapshotVersionedKey(airportCode, direction, now), data)
 }
 
 func (s *Syncer) saveLandedFlights(ctx context.Context, flights []LandedFlight) {

@@ -103,6 +103,7 @@ The weather endpoint wraps the Shenzhen Airport JSONP weather interface and retu
 
 The daily snapshots are stored at:
 
-- `flights/{airport}/{direction}/daily/{YYYY-MM-DD}.json`
+- `flights/{airport}/{direction}/daily/{YYYY-MM-DD}/latest.json`
+- `flights/{airport}/{direction}/daily/{YYYY-MM-DD}/{H-M}.json`
 
 The date portion uses the `Asia/Shanghai` timezone so the `today` endpoints align with Shenzhen local time.
