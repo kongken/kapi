@@ -117,14 +117,21 @@ func TestV2AirportListRoute(t *testing.T) {
 	if recorder.Code != nethttp.StatusOK {
 		t.Fatalf("expected status 200, got %d: %s", recorder.Code, recorder.Body.String())
 	}
-	if !strings.Contains(recorder.Body.String(), `"can"`) {
-		t.Fatalf("expected can in airport list, got %s", recorder.Body.String())
+	body := recorder.Body.String()
+	if !strings.Contains(body, `"code":"can"`) {
+		t.Fatalf("expected can airport info, got %s", body)
 	}
-	if !strings.Contains(recorder.Body.String(), `"szx"`) {
-		t.Fatalf("expected szx in airport list, got %s", recorder.Body.String())
+	if !strings.Contains(body, `"code":"szx"`) {
+		t.Fatalf("expected szx airport info, got %s", body)
 	}
-	if !strings.Contains(recorder.Body.String(), `"total":2`) {
-		t.Fatalf("expected total 2, got %s", recorder.Body.String())
+	if !strings.Contains(body, `"nameCn":"深圳宝安国际机场"`) {
+		t.Fatalf("expected szx nameCn, got %s", body)
+	}
+	if !strings.Contains(body, `"nameCn":"广州白云国际机场"`) {
+		t.Fatalf("expected can nameCn, got %s", body)
+	}
+	if !strings.Contains(body, `"total":2`) {
+		t.Fatalf("expected total 2, got %s", body)
 	}
 }
 

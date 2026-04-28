@@ -19,6 +19,16 @@ func (p *SZXProvider) Code() string {
 	return "szx"
 }
 
+func (p *SZXProvider) Info() AirportInfo {
+	return AirportInfo{
+		Code:       "szx",
+		NameCn:     "深圳宝安国际机场",
+		NameEn:     "Shenzhen Bao'an International Airport",
+		City:       "深圳",
+		HasWeather: true,
+	}
+}
+
 func (p *SZXProvider) GetFlights(ctx context.Context, query FlightQuery) (FlightsResponse, error) {
 	upstreamQuery := szx.Query{
 		Type:        query.Lang,

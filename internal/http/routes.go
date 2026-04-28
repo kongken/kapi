@@ -93,10 +93,10 @@ func corsMiddleware() gin.HandlerFunc {
 
 func handleAirportList(registry *airports.Registry) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		codes := registry.Codes()
+		list := registry.List()
 		c.JSON(http.StatusOK, gin.H{
-			"airports": codes,
-			"total":    len(codes),
+			"airports": list,
+			"total":    len(list),
 		})
 	}
 }

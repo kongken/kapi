@@ -19,6 +19,16 @@ func (p *CANProvider) Code() string {
 	return "can"
 }
 
+func (p *CANProvider) Info() AirportInfo {
+	return AirportInfo{
+		Code:       "can",
+		NameCn:     "广州白云国际机场",
+		NameEn:     "Guangzhou Baiyun International Airport",
+		City:       "广州",
+		HasWeather: false,
+	}
+}
+
 func (p *CANProvider) GetFlights(ctx context.Context, query FlightQuery) (FlightsResponse, error) {
 	response, err := p.client.Fetch(ctx, query.Direction, query.Lang)
 	if err != nil {
