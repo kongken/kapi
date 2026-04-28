@@ -9,6 +9,7 @@ import (
 	"butterfly.orx.me/core/app"
 	"github.com/gin-gonic/gin"
 
+	"github.com/kongken/kapi/internal/can"
 	"github.com/kongken/kapi/internal/config"
 	"github.com/kongken/kapi/internal/flight"
 	apihttp "github.com/kongken/kapi/internal/http"
@@ -20,6 +21,7 @@ func main() {
 
 	syncer := flight.NewSyncer()
 	syncer.Register("szx", szx.NewDefaultClient())
+	syncer.Register("can", can.NewDefaultClient())
 
 	appConfig := &app.Config{
 		Namespace: "auto",

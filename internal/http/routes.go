@@ -30,7 +30,10 @@ func (f dailySnapshotLoaderFunc) Load(ctx context.Context, airportCode string, d
 
 func registerRoutes(r *gin.Engine, httpClient szx.HTTPDoer, loader dailySnapshotLoader) {
 	szxClient := szx.NewClient(httpClient)
-	registry := airports.NewRegistry(airports.NewSZXProvider(httpClient))
+	registry := airports.NewRegistry(
+		airports.NewSZXProvider(httpClient),
+		airports.NewCANProvider(httpClient),
+	)
 
 	r.Use(corsMiddleware())
 
