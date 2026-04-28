@@ -33,6 +33,10 @@ type Fetcher interface {
 	FetchFlights(ctx context.Context, direction string) (*FetchResult, error)
 }
 
+type DailyFetcher interface {
+	FetchDailyFlights(ctx context.Context, direction string) ([]byte, error)
+}
+
 type airport struct {
 	code    string
 	fetcher Fetcher
@@ -74,6 +78,25 @@ func (s *Syncer) StartSync(ctx context.Context, interval time.Duration) {
 	}
 }
 
+func (s *Syncer) StartDailySync(ctx context.Context, interval time.Duration) {
+	slog.Info("starting daily flight sync", "interval", interval, "airports", len(s.airports))
+
+	s.syncDailyAll(ctx)
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			slog.Info("stopping daily flight sync")
+			return
+		case <-ticker.C:
+			s.syncDailyAll(ctx)
+		}
+	}
+}
+
 func (s *Syncer) syncAll(ctx context.Context) {
 	for _, ap := range s.airports {
 		for _, direction := range []string{"departure", "arrival"} {
@@ -89,11 +112,36 @@ func (s *Syncer) syncAll(ctx context.Context) {
 	}
 }
 
+func (s *Syncer) syncDailyAll(ctx context.Context) {
+	for _, ap := range s.airports {
+		dailyFetcher, ok := ap.fetcher.(DailyFetcher)
+		if !ok {
+			continue
+		}
+
+		for _, direction := range []string{"departure", "arrival"} {
+			data, err := dailyFetcher.FetchDailyFlights(ctx, direction)
+			if err != nil {
+				slog.Error("failed to fetch daily flights",
+					"airport", ap.code, "direction", direction, "error", err)
+				continue
+			}
+			s.saveDailySnapshot(ctx, ap.code, direction, data)
+		}
+	}
+}
+
 func (s *Syncer) saveSnapshot(ctx context.Context, airportCode, direction string, data []byte) {
 	now := time.Now().UTC()
 	key := fmt.Sprintf("flights/%s/%s/%s/%s.json",
 		airportCode, direction, now.Format("2006-01-02"), now.Format("15-04-05"))
 	s.putObject(ctx, key, data)
+}
+
+func (s *Syncer) saveDailySnapshot(ctx context.Context, airportCode string, direction string, data []byte) {
+	now := time.Now()
+	s.putObject(ctx, DailySnapshotLatestKey(airportCode, direction, now), data)
+	s.putObject(ctx, DailySnapshotVersionedKey(airportCode, direction, now), data)
 }
 
 func (s *Syncer) saveLandedFlights(ctx context.Context, flights []LandedFlight) {
