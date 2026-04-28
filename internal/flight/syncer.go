@@ -72,6 +72,7 @@ func (s *Syncer) syncDailyAll(ctx context.Context) {
 
 func (s *Syncer) saveDailySnapshot(ctx context.Context, airportCode string, direction string, data []byte) {
 	now := time.Now()
+	storeDailySnapshotInCache(ctx, getDailySnapshotCache(), DailySnapshotCacheKey(airportCode, direction, now), data)
 	s.putObject(ctx, DailySnapshotLatestKey(airportCode, direction, now), data)
 	s.putObject(ctx, DailySnapshotVersionedKey(airportCode, direction, now), data)
 }
