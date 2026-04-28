@@ -289,3 +289,55 @@ func TestSZXDailyDeparturesRouteReturnsNotFound(t *testing.T) {
 		t.Fatalf("expected status 404, got %d: %s", recorder.Code, recorder.Body.String())
 	}
 }
+
+func TestCANDailyDeparturesRoute(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	registerRoutes(router, newTestHTTPClient(func(req *nethttp.Request) (*nethttp.Response, error) {
+		t.Fatal("unexpected upstream call")
+		return nil, nil
+	}), testDailySnapshotLoader(func(_ context.Context, airportCode string, direction string) ([]byte, error) {
+		if airportCode != "can" || direction != "departure" {
+			t.Fatalf("unexpected daily snapshot request %s/%s", airportCode, direction)
+		}
+		return []byte(`{"source":"baiyunairport","direction":"departure","total":1,"flights":[{"flightNumbers":["CZ3456"]}]}`), nil
+	}))
+
+	req := httptest.NewRequest(nethttp.MethodGet, "/api/v1/can/departures/today", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	if recorder.Code != nethttp.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"source":"baiyunairport"`) {
+		t.Fatalf("expected baiyunairport source, got %s", recorder.Body.String())
+	}
+}
+
+func TestCANDailyArrivalsRoute(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	registerRoutes(router, newTestHTTPClient(func(req *nethttp.Request) (*nethttp.Response, error) {
+		t.Fatal("unexpected upstream call")
+		return nil, nil
+	}), testDailySnapshotLoader(func(_ context.Context, airportCode string, direction string) ([]byte, error) {
+		if airportCode != "can" || direction != "arrival" {
+			t.Fatalf("unexpected daily snapshot request %s/%s", airportCode, direction)
+		}
+		return []byte(`{"source":"baiyunairport","direction":"arrival","total":2,"flights":[{"flightNumbers":["MU5678"]},{"flightNumbers":["CA1234"]}]}`), nil
+	}))
+
+	req := httptest.NewRequest(nethttp.MethodGet, "/api/v1/can/arrivals/today", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	if recorder.Code != nethttp.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"direction":"arrival"`) {
+		t.Fatalf("expected arrival direction, got %s", recorder.Body.String())
+	}
+}

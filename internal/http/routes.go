@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/kongken/kapi/internal/airports"
+	"github.com/kongken/kapi/internal/can"
 	"github.com/kongken/kapi/internal/flight"
 	"github.com/kongken/kapi/internal/szx"
 )
@@ -30,6 +31,7 @@ func (f dailySnapshotLoaderFunc) Load(ctx context.Context, airportCode string, d
 
 func registerRoutes(r *gin.Engine, httpClient szx.HTTPDoer, loader dailySnapshotLoader) {
 	szxClient := szx.NewClient(httpClient)
+	canClient := can.NewClient(httpClient)
 	registry := airports.NewRegistry(
 		airports.NewSZXProvider(httpClient),
 		airports.NewCANProvider(httpClient),
@@ -58,9 +60,14 @@ func registerRoutes(r *gin.Engine, httpClient szx.HTTPDoer, loader dailySnapshot
 	})
 	v1.GET("/szx/departures", handleSZXFlightInfo(szxClient, "departure"))
 	v1.GET("/szx/arrivals", handleSZXFlightInfo(szxClient, "arrival"))
-	v1.GET("/szx/departures/today", handleSZXDailyFlights(loader, "szx", "departure"))
-	v1.GET("/szx/arrivals/today", handleSZXDailyFlights(loader, "szx", "arrival"))
+	v1.GET("/szx/departures/today", handleDailyFlights(loader, "szx", "departure"))
+	v1.GET("/szx/arrivals/today", handleDailyFlights(loader, "szx", "arrival"))
 	v1.GET("/szx/weather", handleSZXWeather(szxClient))
+
+	v1.GET("/can/departures", handleCANFlightInfo(canClient, "departure"))
+	v1.GET("/can/arrivals", handleCANFlightInfo(canClient, "arrival"))
+	v1.GET("/can/departures/today", handleDailyFlights(loader, "can", "departure"))
+	v1.GET("/can/arrivals/today", handleDailyFlights(loader, "can", "arrival"))
 
 	v2 := api.Group("/v2")
 	v2.GET("/airports/:airport/flights", handleAirportFlights(registry))
@@ -176,6 +183,30 @@ func handleSZXFlightInfo(client *szx.Client, direction string) gin.HandlerFunc {
 	}
 }
 
+func handleCANFlightInfo(client *can.Client, direction string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		lang := c.DefaultQuery("lang", "cn")
+		if lang != "cn" && lang != "en" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error":   "invalid_query",
+				"message": "lang must be either 'cn' or 'en'",
+			})
+			return
+		}
+
+		response, err := client.Fetch(c.Request.Context(), direction, lang)
+		if err != nil {
+			c.JSON(http.StatusBadGateway, gin.H{
+				"error":   "upstream_error",
+				"message": err.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, response)
+	}
+}
+
 func handleSZXWeather(client *szx.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		response, err := client.FetchWeather(c.Request.Context())
@@ -191,7 +222,7 @@ func handleSZXWeather(client *szx.Client) gin.HandlerFunc {
 	}
 }
 
-func handleSZXDailyFlights(loader dailySnapshotLoader, airportCode string, direction string) gin.HandlerFunc {
+func handleDailyFlights(loader dailySnapshotLoader, airportCode string, direction string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
 
