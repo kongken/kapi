@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -154,6 +155,13 @@ func ValidateQuery(query Query) error {
 	}
 	if !isDigitsOnly(query.CurrentTime) {
 		return errors.New("currentTime must be numeric")
+	}
+	currentTime, err := strconv.Atoi(query.CurrentTime)
+	if err != nil {
+		return errors.New("currentTime must be numeric")
+	}
+	if currentTime < 0 || currentTime > 12 {
+		return errors.New("currentTime must be between 0 and 12")
 	}
 	return nil
 }

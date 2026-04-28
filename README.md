@@ -77,8 +77,14 @@ Supported query parameters:
 
 - `type`: `cn` or `en`, default `cn`
 - `currentDate`: upstream date selector, default `1`
-- `currentTime`: upstream time selector, default `8`
+- `currentTime`: upstream time slot selector, default `8`, validated range `0-12`
 - `flightNo`: optional filter, mapped to upstream `hbxx_hbh`
+
+Verified `currentTime` behavior against the live SZX endpoint:
+
+- `0-11` map to the 2-hour slots starting at `00:00`, `02:00`, ..., `22:00`
+- `12` is also accepted by the upstream API and returns a broader result set
+- values above `12` currently make the upstream return invalid data, so `kapi` rejects them with `400 invalid_query`
 
 The response includes the original upstream payload in `raw` and a normalized `flights` array for easier consumption.
 

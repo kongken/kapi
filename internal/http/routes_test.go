@@ -135,6 +135,27 @@ func TestSZXArrivalsRouteRejectsInvalidQuery(t *testing.T) {
 	}
 }
 
+func TestSZXArrivalsRouteRejectsOutOfRangeCurrentTime(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	RegisterRoutes(router, newTestHTTPClient(func(req *nethttp.Request) (*nethttp.Response, error) {
+		t.Fatal("unexpected upstream call for invalid query")
+		return nil, nil
+	}))
+
+	req := httptest.NewRequest(nethttp.MethodGet, "/api/v1/szx/arrivals?currentTime=13", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	if recorder.Code != nethttp.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"currentTime must be between 0 and 12"`) {
+		t.Fatalf("expected currentTime range validation message, got %s", recorder.Body.String())
+	}
+}
+
 func TestRoutesIncludeCORSHeaders(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

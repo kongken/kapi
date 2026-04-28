@@ -139,3 +139,27 @@ func TestFetchIgnoresCacheReadErrors(t *testing.T) {
 		t.Fatalf("expected upstream fallback after cache error, got %d calls", upstreamCalls)
 	}
 }
+
+func TestValidateQueryRejectsCurrentTimeOutsideVerifiedRange(t *testing.T) {
+	tests := []struct {
+		name  string
+		query Query
+	}{
+		{
+			name:  "negative not allowed",
+			query: Query{Type: "cn", CurrentDate: "1", CurrentTime: "-1"},
+		},
+		{
+			name:  "above verified upstream range",
+			query: Query{Type: "cn", CurrentDate: "1", CurrentTime: "13"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := ValidateQuery(tt.query); err == nil {
+				t.Fatalf("expected validation error for query %+v", tt.query)
+			}
+		})
+	}
+}
