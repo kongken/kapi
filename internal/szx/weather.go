@@ -11,6 +11,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	redis "github.com/redis/go-redis/v9"
 )
 
 const weatherURL = "https://www.szairport.com/szjchbjk/weatherInterface/showWeather"
@@ -44,6 +46,10 @@ type WeatherResponse struct {
 }
 
 func (c *Client) FetchWeather(ctx context.Context) (WeatherResponse, error) {
+	if cached, ok := c.loadCachedWeather(ctx); ok {
+		return cached, nil
+	}
+
 	upstream, err := c.fetchWeatherUpstream(ctx, true)
 	if err != nil {
 		return WeatherResponse{}, err
@@ -61,12 +67,57 @@ func (c *Client) FetchWeather(ctx context.Context) (WeatherResponse, error) {
 		})
 	}
 
-	return WeatherResponse{
+	response := WeatherResponse{
 		Source:   "szairport",
 		Total:    len(weathers),
 		Weathers: weathers,
 		Raw:      upstream,
-	}, nil
+	}
+	c.storeCachedWeather(ctx, response)
+	return response, nil
+}
+
+func (c *Client) loadCachedWeather(ctx context.Context) (WeatherResponse, bool) {
+	if c.cache == nil {
+		return WeatherResponse{}, false
+	}
+
+	value, err := c.cache.Get(ctx, weatherCacheKey)
+	if err != nil {
+		if !errors.Is(err, redis.Nil) {
+			slog.Warn("failed to load cached weather response", "key", weatherCacheKey, "error", err)
+		}
+		return WeatherResponse{}, false
+	}
+
+	var response WeatherResponse
+	if err := json.Unmarshal([]byte(value), &response); err != nil {
+		slog.Warn("failed to decode cached weather response", "key", weatherCacheKey, "error", err)
+		return WeatherResponse{}, false
+	}
+
+	slog.Info("weather cache hit", "key", weatherCacheKey)
+	return response, true
+}
+
+func (c *Client) storeCachedWeather(ctx context.Context, response WeatherResponse) {
+	if c.cache == nil {
+		return
+	}
+
+	payload, err := json.Marshal(response)
+	if err != nil {
+		slog.Warn("failed to encode weather response for cache", "error", err)
+		return
+	}
+
+	ttl := defaultWeatherCacheTTL
+	if err := c.cache.Set(ctx, weatherCacheKey, string(payload), ttl); err != nil {
+		slog.Warn("failed to store weather response in cache", "key", weatherCacheKey, "error", err)
+		return
+	}
+
+	slog.Info("stored weather response in cache", "key", weatherCacheKey, "ttl", ttl, "total", response.Total)
 }
 
 func (c *Client) fetchWeatherUpstream(ctx context.Context, canRetry bool) (UpstreamWeatherResponse, error) {
