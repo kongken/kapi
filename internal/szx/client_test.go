@@ -165,6 +165,113 @@ func TestValidateQueryRejectsCurrentTimeOutsideVerifiedRange(t *testing.T) {
 	}
 }
 
+func TestFetchWeatherUsesCachedResponse(t *testing.T) {
+	cached := `{"source":"szairport","total":1,"weathers":[{"date":"2026-04-28","high":"30°C","low":"22°C","type":"晴","iconUrl":"https://www.szairport.com/sun.png","raw":{"date":"2026-04-28","high":"30°C","low":"22°C","type":"晴","img":"/sun.png"}}],"raw":{"list":[{"date":"2026-04-28","high":"30°C","low":"22°C","type":"晴","img":"/sun.png"}]}}`
+	cache := &memoryCache{
+		values: map[string]string{
+			"szx:weather": cached,
+		},
+	}
+
+	client := NewClientWithCache(testHTTPDoer(func(req *http.Request) (*http.Response, error) {
+		t.Fatalf("unexpected upstream call to %s", req.URL.String())
+		return nil, nil
+	}), cache, time.Minute)
+
+	resp, err := client.FetchWeather(context.Background())
+	if err != nil {
+		t.Fatalf("FetchWeather returned error: %v", err)
+	}
+	if resp.Total != 1 {
+		t.Fatalf("expected cached response total 1, got %d", resp.Total)
+	}
+	if resp.Weathers[0].Date != "2026-04-28" {
+		t.Fatalf("expected cached weather date, got %q", resp.Weathers[0].Date)
+	}
+	if cache.setCalls != 0 {
+		t.Fatalf("expected cache hit without cache write, got %d set calls", cache.setCalls)
+	}
+}
+
+func TestFetchWeatherStoresResponseInCache(t *testing.T) {
+	cache := &memoryCache{}
+	upstreamCalls := 0
+	client := NewClientWithCache(testHTTPDoer(func(req *http.Request) (*http.Response, error) {
+		upstreamCalls++
+		body := `getResult({"list":[{"date":"2026-04-28","high":"30°C","low":"22°C","type":"晴","img":"/sun.png"}]})`
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(body)),
+			Header:     make(http.Header),
+		}, nil
+	}), cache, time.Minute)
+
+	resp, err := client.FetchWeather(context.Background())
+	if err != nil {
+		t.Fatalf("FetchWeather returned error: %v", err)
+	}
+	if upstreamCalls != 1 {
+		t.Fatalf("expected one upstream call, got %d", upstreamCalls)
+	}
+	if resp.Total != 1 {
+		t.Fatalf("expected response total 1, got %d", resp.Total)
+	}
+	if cache.setCalls != 1 {
+		t.Fatalf("expected one cache write, got %d", cache.setCalls)
+	}
+	if cache.lastKey != "szx:weather" {
+		t.Fatalf("expected cache key szx:weather, got %q", cache.lastKey)
+	}
+	if cache.lastTTL != 10*time.Minute {
+		t.Fatalf("expected weather cache ttl %s, got %s", 10*time.Minute, cache.lastTTL)
+	}
+}
+
+func TestFetchWeatherIgnoresCacheErrors(t *testing.T) {
+	cache := &memoryCache{getErr: errors.New("boom")}
+	upstreamCalls := 0
+	client := NewClientWithCache(testHTTPDoer(func(req *http.Request) (*http.Response, error) {
+		upstreamCalls++
+		body := `getResult({"list":[]})`
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(body)),
+			Header:     make(http.Header),
+		}, nil
+	}), cache, time.Minute)
+
+	if _, err := client.FetchWeather(context.Background()); err != nil {
+		t.Fatalf("FetchWeather returned error: %v", err)
+	}
+	if upstreamCalls != 1 {
+		t.Fatalf("expected upstream fallback after cache error, got %d calls", upstreamCalls)
+	}
+}
+
+func TestFetchWeatherNoCacheStillWorks(t *testing.T) {
+	upstreamCalls := 0
+	client := NewClientWithCache(testHTTPDoer(func(req *http.Request) (*http.Response, error) {
+		upstreamCalls++
+		body := `getResult({"list":[{"date":"2026-04-28","high":"30°C","low":"22°C","type":"晴","img":"/sun.png"}]})`
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(body)),
+			Header:     make(http.Header),
+		}, nil
+	}), nil, time.Minute)
+
+	resp, err := client.FetchWeather(context.Background())
+	if err != nil {
+		t.Fatalf("FetchWeather returned error: %v", err)
+	}
+	if upstreamCalls != 1 {
+		t.Fatalf("expected one upstream call, got %d", upstreamCalls)
+	}
+	if resp.Total != 1 {
+		t.Fatalf("expected response total 1, got %d", resp.Total)
+	}
+}
+
 func TestFetchDailyFlightsMergesTimeSlots(t *testing.T) {
 	client := NewClientWithCache(testHTTPDoer(func(req *http.Request) (*http.Response, error) {
 		currentTime := req.URL.Query().Get("currentTime")

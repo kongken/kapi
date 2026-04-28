@@ -22,8 +22,10 @@ const baseURL = "https://www.szairport.com/szjchbjk/hbcx/flightInfo"
 
 const (
 	defaultFlightsCacheTTL = time.Minute
+	defaultWeatherCacheTTL = 10 * time.Minute
 	defaultRedisKey        = "default"
 	flightsCachePrefix     = "szx:flights:"
+	weatherCacheKey        = "szx:weather"
 )
 
 type HTTPDoer interface {
