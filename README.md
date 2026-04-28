@@ -98,7 +98,6 @@ The weather endpoint wraps the Shenzhen Airport JSONP weather interface and retu
 
 ## Flight Sync Jobs
 
-- `szx.sync_interval`: snapshot sync interval for the existing per-poll S3 snapshots, default `5m`
 - `szx.daily_sync_interval`: all-day snapshot generation interval for the merged `today` payloads, default `30m`
 
 The daily snapshots are stored at:

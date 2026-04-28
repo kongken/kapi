@@ -9,7 +9,6 @@ log:
 otel: {}
 
 szx:
-  sync_interval: "5m"
   daily_sync_interval: "30m"
 
 store:
