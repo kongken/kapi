@@ -101,6 +101,40 @@ func TestV2AirportFlightsRoute(t *testing.T) {
 	}
 }
 
+func TestV2AirportListRoute(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	RegisterRoutes(router, newTestHTTPClient(func(req *nethttp.Request) (*nethttp.Response, error) {
+		t.Fatal("unexpected upstream call")
+		return nil, nil
+	}))
+
+	req := httptest.NewRequest(nethttp.MethodGet, "/api/v2/airports", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	if recorder.Code != nethttp.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `"code":"can"`) {
+		t.Fatalf("expected can airport info, got %s", body)
+	}
+	if !strings.Contains(body, `"code":"szx"`) {
+		t.Fatalf("expected szx airport info, got %s", body)
+	}
+	if !strings.Contains(body, `"nameCn":"深圳宝安国际机场"`) {
+		t.Fatalf("expected szx nameCn, got %s", body)
+	}
+	if !strings.Contains(body, `"nameCn":"广州白云国际机场"`) {
+		t.Fatalf("expected can nameCn, got %s", body)
+	}
+	if !strings.Contains(body, `"total":2`) {
+		t.Fatalf("expected total 2, got %s", body)
+	}
+}
+
 func TestV2AirportFlightsRouteRejectsUnknownAirport(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -287,5 +321,57 @@ func TestSZXDailyDeparturesRouteReturnsNotFound(t *testing.T) {
 
 	if recorder.Code != nethttp.StatusNotFound {
 		t.Fatalf("expected status 404, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestCANDailyDeparturesRoute(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	registerRoutes(router, newTestHTTPClient(func(req *nethttp.Request) (*nethttp.Response, error) {
+		t.Fatal("unexpected upstream call")
+		return nil, nil
+	}), testDailySnapshotLoader(func(_ context.Context, airportCode string, direction string) ([]byte, error) {
+		if airportCode != "can" || direction != "departure" {
+			t.Fatalf("unexpected daily snapshot request %s/%s", airportCode, direction)
+		}
+		return []byte(`{"source":"baiyunairport","direction":"departure","total":1,"flights":[{"flightNumbers":["CZ3456"]}]}`), nil
+	}))
+
+	req := httptest.NewRequest(nethttp.MethodGet, "/api/v1/can/departures/today", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	if recorder.Code != nethttp.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"source":"baiyunairport"`) {
+		t.Fatalf("expected baiyunairport source, got %s", recorder.Body.String())
+	}
+}
+
+func TestCANDailyArrivalsRoute(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	registerRoutes(router, newTestHTTPClient(func(req *nethttp.Request) (*nethttp.Response, error) {
+		t.Fatal("unexpected upstream call")
+		return nil, nil
+	}), testDailySnapshotLoader(func(_ context.Context, airportCode string, direction string) ([]byte, error) {
+		if airportCode != "can" || direction != "arrival" {
+			t.Fatalf("unexpected daily snapshot request %s/%s", airportCode, direction)
+		}
+		return []byte(`{"source":"baiyunairport","direction":"arrival","total":2,"flights":[{"flightNumbers":["MU5678"]},{"flightNumbers":["CA1234"]}]}`), nil
+	}))
+
+	req := httptest.NewRequest(nethttp.MethodGet, "/api/v1/can/arrivals/today", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	if recorder.Code != nethttp.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"direction":"arrival"`) {
+		t.Fatalf("expected arrival direction, got %s", recorder.Body.String())
 	}
 }

@@ -3,6 +3,7 @@ package airports
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -70,9 +71,19 @@ type WeatherResponse struct {
 	Raw      any       `json:"raw"`
 }
 
+// AirportInfo describes a supported airport and its capabilities.
+type AirportInfo struct {
+	Code       string `json:"code"`
+	NameCn     string `json:"nameCn"`
+	NameEn     string `json:"nameEn"`
+	City       string `json:"city"`
+	HasWeather bool   `json:"hasWeather"`
+}
+
 // Provider exposes the normalized airport API surface.
 type Provider interface {
 	Code() string
+	Info() AirportInfo
 	GetFlights(ctx context.Context, query FlightQuery) (FlightsResponse, error)
 	GetWeather(ctx context.Context) (WeatherResponse, error)
 }
@@ -100,6 +111,26 @@ func (r *Registry) Register(provider Provider) {
 func (r *Registry) Get(code string) (Provider, bool) {
 	provider, ok := r.providers[strings.ToLower(code)]
 	return provider, ok
+}
+
+func (r *Registry) Codes() []string {
+	codes := make([]string, 0, len(r.providers))
+	for code := range r.providers {
+		codes = append(codes, code)
+	}
+	sort.Strings(codes)
+	return codes
+}
+
+func (r *Registry) List() []AirportInfo {
+	infos := make([]AirportInfo, 0, len(r.providers))
+	for _, provider := range r.providers {
+		infos = append(infos, provider.Info())
+	}
+	sort.Slice(infos, func(i, j int) bool {
+		return infos[i].Code < infos[j].Code
+	})
+	return infos
 }
 
 func ValidateFlightQuery(query FlightQuery) error {
