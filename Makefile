@@ -1,10 +1,16 @@
 APP_NAME := starter-service
 BUILD_DIR := bin
 
-.PHONY: tidy build run clean docker-build
+.PHONY: tidy proto proto-lint build run clean docker-build
 
 tidy:
 	go mod tidy
+
+proto:
+	buf generate
+
+proto-lint:
+	buf lint
 
 build:
 	mkdir -p $(BUILD_DIR)
