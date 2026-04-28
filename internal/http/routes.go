@@ -3,7 +3,9 @@ package http
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -188,9 +190,22 @@ func handleSZXWeather(client *szx.Client) gin.HandlerFunc {
 
 func handleSZXDailyFlights(loader dailySnapshotLoader, airportCode string, direction string) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		start := time.Now()
+
 		data, err := loader.Load(c.Request.Context(), airportCode, direction)
 		if err != nil {
+			elapsed := time.Since(start)
 			if errors.Is(err, flight.ErrDailySnapshotNotFound) {
+				slog.Info("daily flights request",
+					"path", c.Request.URL.Path,
+					"airport", airportCode,
+					"direction", direction,
+					"status", http.StatusNotFound,
+					"elapsed", elapsed,
+					"client_ip", c.ClientIP(),
+					"user_agent", c.Request.UserAgent(),
+					"referer", c.Request.Referer(),
+				)
 				c.JSON(http.StatusNotFound, gin.H{
 					"error":   "daily_snapshot_not_found",
 					"message": "daily flights snapshot not found",
@@ -198,6 +213,17 @@ func handleSZXDailyFlights(loader dailySnapshotLoader, airportCode string, direc
 				return
 			}
 
+			slog.Error("daily flights request failed",
+				"path", c.Request.URL.Path,
+				"airport", airportCode,
+				"direction", direction,
+				"status", http.StatusBadGateway,
+				"elapsed", elapsed,
+				"client_ip", c.ClientIP(),
+				"user_agent", c.Request.UserAgent(),
+				"referer", c.Request.Referer(),
+				"error", err,
+			)
 			c.JSON(http.StatusBadGateway, gin.H{
 				"error":   "daily_snapshot_unavailable",
 				"message": err.Error(),
@@ -205,6 +231,18 @@ func handleSZXDailyFlights(loader dailySnapshotLoader, airportCode string, direc
 			return
 		}
 
+		elapsed := time.Since(start)
+		slog.Info("daily flights request",
+			"path", c.Request.URL.Path,
+			"airport", airportCode,
+			"direction", direction,
+			"status", http.StatusOK,
+			"elapsed", elapsed,
+			"bytes", len(data),
+			"client_ip", c.ClientIP(),
+			"user_agent", c.Request.UserAgent(),
+			"referer", c.Request.Referer(),
+		)
 		c.Data(http.StatusOK, "application/json; charset=utf-8", data)
 	}
 }
