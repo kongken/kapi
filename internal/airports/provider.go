@@ -3,6 +3,7 @@ package airports
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -100,6 +101,15 @@ func (r *Registry) Register(provider Provider) {
 func (r *Registry) Get(code string) (Provider, bool) {
 	provider, ok := r.providers[strings.ToLower(code)]
 	return provider, ok
+}
+
+func (r *Registry) Codes() []string {
+	codes := make([]string, 0, len(r.providers))
+	for code := range r.providers {
+		codes = append(codes, code)
+	}
+	sort.Strings(codes)
+	return codes
 }
 
 func ValidateFlightQuery(query FlightQuery) error {

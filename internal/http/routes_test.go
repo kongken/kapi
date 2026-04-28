@@ -101,6 +101,33 @@ func TestV2AirportFlightsRoute(t *testing.T) {
 	}
 }
 
+func TestV2AirportListRoute(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	RegisterRoutes(router, newTestHTTPClient(func(req *nethttp.Request) (*nethttp.Response, error) {
+		t.Fatal("unexpected upstream call")
+		return nil, nil
+	}))
+
+	req := httptest.NewRequest(nethttp.MethodGet, "/api/v2/airports", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	if recorder.Code != nethttp.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"can"`) {
+		t.Fatalf("expected can in airport list, got %s", recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"szx"`) {
+		t.Fatalf("expected szx in airport list, got %s", recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"total":2`) {
+		t.Fatalf("expected total 2, got %s", recorder.Body.String())
+	}
+}
+
 func TestV2AirportFlightsRouteRejectsUnknownAirport(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

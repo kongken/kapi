@@ -70,6 +70,7 @@ func registerRoutes(r *gin.Engine, httpClient szx.HTTPDoer, loader dailySnapshot
 	v1.GET("/can/arrivals/today", handleDailyFlights(loader, "can", "arrival"))
 
 	v2 := api.Group("/v2")
+	v2.GET("/airports", handleAirportList(registry))
 	v2.GET("/airports/:airport/flights", handleAirportFlights(registry))
 	v2.GET("/airports/:airport/weather", handleAirportWeather(registry))
 }
@@ -87,6 +88,16 @@ func corsMiddleware() gin.HandlerFunc {
 		}
 
 		c.Next()
+	}
+}
+
+func handleAirportList(registry *airports.Registry) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		codes := registry.Codes()
+		c.JSON(http.StatusOK, gin.H{
+			"airports": codes,
+			"total":    len(codes),
+		})
 	}
 }
 
