@@ -15,7 +15,6 @@ import (
 	"time"
 
 	bredis "butterfly.orx.me/core/store/redis"
-	"github.com/kongken/kapi/internal/flight"
 	redis "github.com/redis/go-redis/v9"
 )
 
@@ -392,41 +391,6 @@ func resolveLogoURL(path string) string {
 	return "https://www.szairport.com" + path
 }
 
-// FetchFlights implements flight.Fetcher.
-func (c *Client) FetchFlights(ctx context.Context, direction string) (*flight.FetchResult, error) {
-	resp, err := c.Fetch(ctx, direction, Query{})
-	if err != nil {
-		return nil, err
-	}
-
-	data, err := json.Marshal(resp)
-	if err != nil {
-		return nil, err
-	}
-
-	today := time.Now().UTC().Format("2006-01-02")
-	var landed []flight.LandedFlight
-	for _, f := range resp.Flights {
-		if !isLanded(f) {
-			continue
-		}
-		fdata, err := json.Marshal(f)
-		if err != nil {
-			continue
-		}
-		landed = append(landed, flight.LandedFlight{
-			FlightNumbers: f.FlightNumbers,
-			Date:          today,
-			Data:          fdata,
-		})
-	}
-
-	return &flight.FetchResult{
-		Data:          data,
-		LandedFlights: landed,
-	}, nil
-}
-
 func (c *Client) FetchDailyFlights(ctx context.Context, direction string) ([]byte, error) {
 	flightsByKey := make(map[string]Flight)
 	orderedKeys := make([]string, 0)
@@ -474,10 +438,6 @@ func (c *Client) FetchDailyFlights(ctx context.Context, direction string) ([]byt
 	}
 
 	return data, nil
-}
-
-func isLanded(f Flight) bool {
-	return f.ActualArrival != "" && f.ActualArrival != "--:--"
 }
 
 func NewDefaultClient() *Client {

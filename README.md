@@ -94,16 +94,21 @@ The response includes the original upstream payload in `raw` and a normalized `f
 
 The `*/today` endpoints return the latest merged all-day snapshot stored in S3. They aggregate `currentTime=0..12` for `currentDate=1` and deduplicate flights into a single daily response.
 
+To reduce response time, the latest `*/today` snapshot is also cached in Redis when the daily sync job runs. The endpoint reads Redis first and falls back to S3 if the cache is cold.
+
 The weather endpoint wraps the Shenzhen Airport JSONP weather interface and returns a normalized `weathers` array with date, high, low, weather text, icon URL, and raw upstream fields.
 
 ## Flight Sync Jobs
 
-- `szx.sync_interval`: snapshot sync interval for the existing per-poll S3 snapshots, default `5m`
 - `szx.daily_sync_interval`: all-day snapshot generation interval for the merged `today` payloads, default `30m`
 
 The daily snapshots are stored at:
 
 - `flights/{airport}/{direction}/daily/{YYYY-MM-DD}/latest.json`
 - `flights/{airport}/{direction}/daily/{YYYY-MM-DD}/{H-M}.json`
+
+The latest daily snapshot is also cached in Redis with keys like:
+
+- `szx:flights:daily:{airport}:{direction}:{YYYY-MM-DD}`
 
 The date portion uses the `Asia/Shanghai` timezone so the `today` endpoints align with Shenzhen local time.

@@ -9,7 +9,6 @@ type ServiceConfig struct {
 }
 
 type SZXConfig struct {
-	SyncInterval      string `yaml:"sync_interval"`
 	DailySyncInterval string `yaml:"daily_sync_interval"`
 }
 
