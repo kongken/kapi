@@ -30,6 +30,8 @@ Minimal Go/Gin API service with Shenzhen Airport flight proxy endpoints.
    curl http://localhost:8080/api/v1/ping
    curl 'http://localhost:8080/api/v1/szx/departures?flightNo=CZ5387'
    curl 'http://localhost:8080/api/v1/szx/arrivals?flightNo=CA1303'
+   curl 'http://localhost:8080/api/v1/szx/departures/today'
+   curl 'http://localhost:8080/api/v1/szx/arrivals/today'
    curl 'http://localhost:8080/api/v1/szx/weather'
    ```
 
@@ -71,6 +73,8 @@ make proto-lint
 
 - `GET /api/v1/szx/departures`
 - `GET /api/v1/szx/arrivals`
+- `GET /api/v1/szx/departures/today`
+- `GET /api/v1/szx/arrivals/today`
 - `GET /api/v1/szx/weather`
 
 Supported query parameters:
@@ -88,4 +92,17 @@ Verified `currentTime` behavior against the live SZX endpoint:
 
 The response includes the original upstream payload in `raw` and a normalized `flights` array for easier consumption.
 
+The `*/today` endpoints return the latest merged all-day snapshot stored in S3. They aggregate `currentTime=0..12` for `currentDate=1` and deduplicate flights into a single daily response.
+
 The weather endpoint wraps the Shenzhen Airport JSONP weather interface and returns a normalized `weathers` array with date, high, low, weather text, icon URL, and raw upstream fields.
+
+## Flight Sync Jobs
+
+- `szx.sync_interval`: snapshot sync interval for the existing per-poll S3 snapshots, default `5m`
+- `szx.daily_sync_interval`: all-day snapshot generation interval for the merged `today` payloads, default `30m`
+
+The daily snapshots are stored at:
+
+- `flights/{airport}/{direction}/daily/{YYYY-MM-DD}.json`
+
+The date portion uses the `Asia/Shanghai` timezone so the `today` endpoints align with Shenzhen local time.

@@ -427,12 +427,98 @@ func (c *Client) FetchFlights(ctx context.Context, direction string) (*flight.Fe
 	}, nil
 }
 
+func (c *Client) FetchDailyFlights(ctx context.Context, direction string) ([]byte, error) {
+	flightsByKey := make(map[string]Flight)
+	orderedKeys := make([]string, 0)
+
+	for currentTime := 0; currentTime <= 12; currentTime++ {
+		response, err := c.Fetch(ctx, direction, Query{
+			Type:        "cn",
+			CurrentDate: "1",
+			CurrentTime: strconv.Itoa(currentTime),
+		})
+		if err != nil {
+			return nil, fmt.Errorf("fetch daily flights currentTime=%d: %w", currentTime, err)
+		}
+
+		for _, item := range response.Flights {
+			key := dailyFlightKey(item)
+			current, exists := flightsByKey[key]
+			if !exists {
+				orderedKeys = append(orderedKeys, key)
+				flightsByKey[key] = item
+				continue
+			}
+			flightsByKey[key] = preferredDailyFlight(current, item)
+		}
+	}
+
+	mergedFlights := make([]Flight, 0, len(orderedKeys))
+	for _, key := range orderedKeys {
+		mergedFlights = append(mergedFlights, flightsByKey[key])
+	}
+
+	data, err := json.Marshal(Response{
+		Source:    "szairport",
+		Direction: direction,
+		Query: Query{
+			Type:        "cn",
+			CurrentDate: "1",
+			CurrentTime: "0-12",
+		},
+		Total:   len(mergedFlights),
+		Flights: mergedFlights,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
+}
+
 func isLanded(f Flight) bool {
 	return f.ActualArrival != "" && f.ActualArrival != "--:--"
 }
 
 func NewDefaultClient() *Client {
 	return NewClient(http.DefaultClient)
+}
+
+func dailyFlightKey(f Flight) string {
+	return strings.Join([]string{
+		strings.Join(f.FlightNumbers, ","),
+		f.PlannedDeparture,
+		f.PlannedArrival,
+		f.DepartureAirport,
+		f.ArrivalAirport,
+	}, "|")
+}
+
+func preferredDailyFlight(current Flight, candidate Flight) Flight {
+	if dailyFlightScore(candidate) >= dailyFlightScore(current) {
+		return candidate
+	}
+	return current
+}
+
+func dailyFlightScore(f Flight) int {
+	score := 0
+	for _, value := range []string{
+		f.ActualDeparture,
+		f.ActualArrival,
+		f.StatusText,
+		f.StatusCode,
+		f.Gate,
+		f.GateDescription,
+		f.BaggageBelt,
+		f.CheckInArea,
+		f.CheckInWindow,
+	} {
+		if value != "" && value != "--:--" {
+			score++
+		}
+	}
+	return score
 }
 
 func isDigitsOnly(value string) bool {

@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"io"
 	nethttp "net/http"
 	"net/http/httptest"
@@ -8,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/kongken/kapi/internal/flight"
 )
 
 type roundTripperFunc func(req *nethttp.Request) (*nethttp.Response, error)
@@ -18,6 +20,12 @@ func (f roundTripperFunc) RoundTrip(req *nethttp.Request) (*nethttp.Response, er
 
 func newTestHTTPClient(fn roundTripperFunc) *nethttp.Client {
 	return &nethttp.Client{Transport: fn}
+}
+
+type testDailySnapshotLoader func(context.Context, string, string) ([]byte, error)
+
+func (f testDailySnapshotLoader) Load(ctx context.Context, airportCode string, direction string) ([]byte, error) {
+	return f(ctx, airportCode, direction)
 }
 
 func TestSZXDeparturesRoute(t *testing.T) {
@@ -233,5 +241,51 @@ func TestSZXWeatherRoute(t *testing.T) {
 	}
 	if !strings.Contains(recorder.Body.String(), `"iconUrl":"https://www.szairport.com/app-editor/ewebeditor/uploadfile/weather_logo/04.png"`) {
 		t.Fatalf("expected resolved weather icon url, got %s", recorder.Body.String())
+	}
+}
+
+func TestSZXDailyDeparturesRoute(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	registerRoutes(router, newTestHTTPClient(func(req *nethttp.Request) (*nethttp.Response, error) {
+		t.Fatal("unexpected upstream call")
+		return nil, nil
+	}), testDailySnapshotLoader(func(_ context.Context, airportCode string, direction string) ([]byte, error) {
+		if airportCode != "szx" || direction != "departure" {
+			t.Fatalf("unexpected daily snapshot request %s/%s", airportCode, direction)
+		}
+		return []byte(`{"source":"szairport","direction":"departure","query":{"currentDate":"1","currentTime":"0-12"},"total":1,"flights":[{"flightNumbers":["CZ5387"]}]}`), nil
+	}))
+
+	req := httptest.NewRequest(nethttp.MethodGet, "/api/v1/szx/departures/today", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	if recorder.Code != nethttp.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"currentTime":"0-12"`) {
+		t.Fatalf("expected daily response body, got %s", recorder.Body.String())
+	}
+}
+
+func TestSZXDailyDeparturesRouteReturnsNotFound(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	registerRoutes(router, newTestHTTPClient(func(req *nethttp.Request) (*nethttp.Response, error) {
+		t.Fatal("unexpected upstream call")
+		return nil, nil
+	}), testDailySnapshotLoader(func(_ context.Context, airportCode string, direction string) ([]byte, error) {
+		return nil, flight.ErrDailySnapshotNotFound
+	}))
+
+	req := httptest.NewRequest(nethttp.MethodGet, "/api/v1/szx/departures/today", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	if recorder.Code != nethttp.StatusNotFound {
+		t.Fatalf("expected status 404, got %d: %s", recorder.Code, recorder.Body.String())
 	}
 }

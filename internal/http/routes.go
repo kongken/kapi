@@ -1,15 +1,32 @@
 package http
 
 import (
+	"context"
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/kongken/kapi/internal/airports"
+	"github.com/kongken/kapi/internal/flight"
 	"github.com/kongken/kapi/internal/szx"
 )
 
 func RegisterRoutes(r *gin.Engine, httpClient szx.HTTPDoer) {
+	registerRoutes(r, httpClient, dailySnapshotLoaderFunc(flight.LoadDailySnapshot))
+}
+
+type dailySnapshotLoader interface {
+	Load(ctx context.Context, airportCode string, direction string) ([]byte, error)
+}
+
+type dailySnapshotLoaderFunc func(ctx context.Context, airportCode string, direction string) ([]byte, error)
+
+func (f dailySnapshotLoaderFunc) Load(ctx context.Context, airportCode string, direction string) ([]byte, error) {
+	return f(ctx, airportCode, direction)
+}
+
+func registerRoutes(r *gin.Engine, httpClient szx.HTTPDoer, loader dailySnapshotLoader) {
 	szxClient := szx.NewClient(httpClient)
 	registry := airports.NewRegistry(airports.NewSZXProvider(httpClient))
 
@@ -36,6 +53,8 @@ func RegisterRoutes(r *gin.Engine, httpClient szx.HTTPDoer) {
 	})
 	v1.GET("/szx/departures", handleSZXFlightInfo(szxClient, "departure"))
 	v1.GET("/szx/arrivals", handleSZXFlightInfo(szxClient, "arrival"))
+	v1.GET("/szx/departures/today", handleSZXDailyFlights(loader, "szx", "departure"))
+	v1.GET("/szx/arrivals/today", handleSZXDailyFlights(loader, "szx", "arrival"))
 	v1.GET("/szx/weather", handleSZXWeather(szxClient))
 
 	v2 := api.Group("/v2")
@@ -164,5 +183,28 @@ func handleSZXWeather(client *szx.Client) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, response)
+	}
+}
+
+func handleSZXDailyFlights(loader dailySnapshotLoader, airportCode string, direction string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		data, err := loader.Load(c.Request.Context(), airportCode, direction)
+		if err != nil {
+			if errors.Is(err, flight.ErrDailySnapshotNotFound) {
+				c.JSON(http.StatusNotFound, gin.H{
+					"error":   "daily_snapshot_not_found",
+					"message": "daily flights snapshot not found",
+				})
+				return
+			}
+
+			c.JSON(http.StatusBadGateway, gin.H{
+				"error":   "daily_snapshot_unavailable",
+				"message": err.Error(),
+			})
+			return
+		}
+
+		c.Data(http.StatusOK, "application/json; charset=utf-8", data)
 	}
 }

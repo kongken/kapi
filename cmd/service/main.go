@@ -30,6 +30,7 @@ func main() {
 		},
 		InitFunc: []func() error{
 			startFlightSync(svcConfig, syncer),
+			startDailyFlightSync(svcConfig, syncer),
 		},
 	}
 
@@ -50,6 +51,23 @@ func startFlightSync(svcConfig *config.ServiceConfig, syncer *flight.Syncer) fun
 		}
 
 		go syncer.StartSync(context.Background(), interval)
+		return nil
+	}
+}
+
+func startDailyFlightSync(svcConfig *config.ServiceConfig, syncer *flight.Syncer) func() error {
+	return func() error {
+		intervalStr := svcConfig.SZX.DailySyncInterval
+		if intervalStr == "" {
+			intervalStr = "30m"
+		}
+		interval, err := time.ParseDuration(intervalStr)
+		if err != nil {
+			slog.Error("invalid daily_sync_interval, using default 30m", "value", intervalStr, "error", err)
+			interval = 30 * time.Minute
+		}
+
+		go syncer.StartDailySync(context.Background(), interval)
 		return nil
 	}
 }

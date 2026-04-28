@@ -2,6 +2,7 @@ package szx
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -161,5 +162,54 @@ func TestValidateQueryRejectsCurrentTimeOutsideVerifiedRange(t *testing.T) {
 				t.Fatalf("expected validation error for query %+v", tt.query)
 			}
 		})
+	}
+}
+
+func TestFetchDailyFlightsMergesTimeSlots(t *testing.T) {
+	client := NewClientWithCache(testHTTPDoer(func(req *http.Request) (*http.Response, error) {
+		currentTime := req.URL.Query().Get("currentTime")
+		body := `{"flightList":[],"type":"cn","currentDate":1,"currentTime":` + currentTime + `}`
+
+		switch currentTime {
+		case "0":
+			body = `{"flightList":[{"startSchemeTakeoffTime":"16:00","terminalSchemeLandinTime":"18:40","startRealTakeoffTime":"16:12","terminalRealLandinTime":"--:--","hbh":[{"flightNo":"CZ5387"}],"shareflightairport":[],"gateCode":"324","gatedesp":"","startStationThreecharcode":"深圳","terminalStationThreecharcode":"成都双流","fltNormalStatus":"已于16:12起飞","fltNormalStatus2":"#","ckls":"A,B01-B12","fces_fcee":"14:00-15:22","apot":"T3","blls":"","craftType":"A21N"}],"type":"cn","currentDate":1,"currentTime":0}`
+		case "12":
+			body = `{"flightList":[{"startSchemeTakeoffTime":"16:00","terminalSchemeLandinTime":"18:40","startRealTakeoffTime":"--:--","terminalRealLandinTime":"--:--","hbh":[{"flightNo":"CZ5387"}],"shareflightairport":[],"gateCode":"","gatedesp":"","startStationThreecharcode":"深圳","terminalStationThreecharcode":"成都双流","fltNormalStatus":"","fltNormalStatus2":"#","ckls":"","fces_fcee":"","apot":"T3","blls":"","craftType":"A21N"},{"startSchemeTakeoffTime":"17:00","terminalSchemeLandinTime":"19:40","startRealTakeoffTime":"--:--","terminalRealLandinTime":"--:--","hbh":[{"flightNo":"CA1303"}],"shareflightairport":[],"gateCode":"524","gatedesp":"Near lounge","startStationThreecharcode":"深圳","terminalStationThreecharcode":"北京首都","fltNormalStatus":"","fltNormalStatus2":"","ckls":"C","fces_fcee":"15:00-16:20","apot":"T3","blls":"","craftType":"B738"}],"type":"cn","currentDate":1,"currentTime":12}`
+		}
+
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(body)),
+			Header:     make(http.Header),
+		}, nil
+	}), nil, time.Minute)
+
+	data, err := client.FetchDailyFlights(context.Background(), "departure")
+	if err != nil {
+		t.Fatalf("FetchDailyFlights returned error: %v", err)
+	}
+
+	var response Response
+	if err := json.Unmarshal(data, &response); err != nil {
+		t.Fatalf("failed to decode daily response: %v", err)
+	}
+
+	if response.Query.CurrentTime != "0-12" {
+		t.Fatalf("expected merged currentTime range, got %q", response.Query.CurrentTime)
+	}
+	if response.Total != 2 {
+		t.Fatalf("expected merged total 2, got %d", response.Total)
+	}
+	if len(response.Flights) != 2 {
+		t.Fatalf("expected 2 merged flights, got %d", len(response.Flights))
+	}
+	if response.Flights[0].ActualDeparture != "16:12" {
+		t.Fatalf("expected richer duplicate to win, got actual departure %q", response.Flights[0].ActualDeparture)
+	}
+	if got := response.Flights[1].FlightNumbers[0]; got != "CA1303" {
+		t.Fatalf("expected second merged flight CA1303, got %q", got)
+	}
+	if got := response.Flights[1].Gate; got != "524" {
+		t.Fatalf("expected CA1303 gate to be preserved, got %q", got)
 	}
 }
