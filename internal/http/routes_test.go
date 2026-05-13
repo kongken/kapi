@@ -135,6 +135,80 @@ func TestV2AirportListRoute(t *testing.T) {
 	}
 }
 
+func TestV2AirportDailyFlightsRoute(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	registerRoutes(router, newTestHTTPClient(func(req *nethttp.Request) (*nethttp.Response, error) {
+		t.Fatal("unexpected upstream call")
+		return nil, nil
+	}), testDailySnapshotLoader(func(_ context.Context, airportCode string, direction string) ([]byte, error) {
+		if airportCode != "szx" || direction != "departure" {
+			t.Fatalf("unexpected daily snapshot request %s/%s", airportCode, direction)
+		}
+		return []byte(`{"source":"szairport","direction":"departure","query":{"currentDate":"1","currentTime":"0-12"},"total":1,"flights":[{"flightNumbers":["CZ5387"]}]}`), nil
+	}))
+
+	req := httptest.NewRequest(nethttp.MethodGet, "/api/v2/airports/szx/flights/today?direction=departure", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	if recorder.Code != nethttp.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"currentTime":"0-12"`) {
+		t.Fatalf("expected daily response body, got %s", recorder.Body.String())
+	}
+}
+
+func TestV2AirportDailyFlightsRouteRejectsMissingDirection(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	registerRoutes(router, newTestHTTPClient(func(req *nethttp.Request) (*nethttp.Response, error) {
+		t.Fatal("unexpected upstream call")
+		return nil, nil
+	}), testDailySnapshotLoader(func(_ context.Context, airportCode string, direction string) ([]byte, error) {
+		t.Fatalf("unexpected daily snapshot request %s/%s", airportCode, direction)
+		return nil, nil
+	}))
+
+	req := httptest.NewRequest(nethttp.MethodGet, "/api/v2/airports/szx/flights/today", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	if recorder.Code != nethttp.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"error":"invalid_query"`) {
+		t.Fatalf("expected invalid_query response, got %s", recorder.Body.String())
+	}
+}
+
+func TestV2AirportDailyFlightsRouteRejectsUnknownAirport(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	registerRoutes(router, newTestHTTPClient(func(req *nethttp.Request) (*nethttp.Response, error) {
+		t.Fatal("unexpected upstream call")
+		return nil, nil
+	}), testDailySnapshotLoader(func(_ context.Context, airportCode string, direction string) ([]byte, error) {
+		t.Fatalf("unexpected daily snapshot request %s/%s", airportCode, direction)
+		return nil, nil
+	}))
+
+	req := httptest.NewRequest(nethttp.MethodGet, "/api/v2/airports/pek/flights/today?direction=departure", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	if recorder.Code != nethttp.StatusNotFound {
+		t.Fatalf("expected status 404, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"error":"airport_not_supported"`) {
+		t.Fatalf("expected airport_not_supported response, got %s", recorder.Body.String())
+	}
+}
+
 func TestV2AirportFlightsRouteRejectsUnknownAirport(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

@@ -72,6 +72,7 @@ func registerRoutes(r *gin.Engine, httpClient szx.HTTPDoer, loader dailySnapshot
 	v2 := api.Group("/v2")
 	v2.GET("/airports", handleAirportList(registry))
 	v2.GET("/airports/:airport/flights", handleAirportFlights(registry))
+	v2.GET("/airports/:airport/flights/today", handleAirportDailyFlights(registry, loader))
 	v2.GET("/airports/:airport/weather", handleAirportWeather(registry))
 }
 
@@ -137,6 +138,84 @@ func handleAirportFlights(registry *airports.Registry) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, response)
+	}
+}
+
+func handleAirportDailyFlights(registry *airports.Registry, loader dailySnapshotLoader) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		provider, ok := registry.Get(c.Param("airport"))
+		if !ok {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error":   "airport_not_supported",
+				"message": "airport provider not found",
+			})
+			return
+		}
+
+		direction := c.Query("direction")
+		if direction != "departure" && direction != "arrival" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error":   "invalid_query",
+				"message": "direction must be either 'departure' or 'arrival'",
+			})
+			return
+		}
+
+		start := time.Now()
+		airportCode := provider.Code()
+
+		data, err := loader.Load(c.Request.Context(), airportCode, direction)
+		if err != nil {
+			elapsed := time.Since(start)
+			if errors.Is(err, flight.ErrDailySnapshotNotFound) {
+				slog.Info("v2 daily flights request",
+					"path", c.Request.URL.Path,
+					"airport", airportCode,
+					"direction", direction,
+					"status", http.StatusNotFound,
+					"elapsed", elapsed,
+					"client_ip", c.ClientIP(),
+					"user_agent", c.Request.UserAgent(),
+					"referer", c.Request.Referer(),
+				)
+				c.JSON(http.StatusNotFound, gin.H{
+					"error":   "daily_snapshot_not_found",
+					"message": "daily flights snapshot not found",
+				})
+				return
+			}
+
+			slog.Error("v2 daily flights request failed",
+				"path", c.Request.URL.Path,
+				"airport", airportCode,
+				"direction", direction,
+				"status", http.StatusBadGateway,
+				"elapsed", elapsed,
+				"client_ip", c.ClientIP(),
+				"user_agent", c.Request.UserAgent(),
+				"referer", c.Request.Referer(),
+				"error", err,
+			)
+			c.JSON(http.StatusBadGateway, gin.H{
+				"error":   "daily_snapshot_unavailable",
+				"message": err.Error(),
+			})
+			return
+		}
+
+		elapsed := time.Since(start)
+		slog.Info("v2 daily flights request",
+			"path", c.Request.URL.Path,
+			"airport", airportCode,
+			"direction", direction,
+			"status", http.StatusOK,
+			"elapsed", elapsed,
+			"bytes", len(data),
+			"client_ip", c.ClientIP(),
+			"user_agent", c.Request.UserAgent(),
+			"referer", c.Request.Referer(),
+		)
+		c.Data(http.StatusOK, "application/json; charset=utf-8", data)
 	}
 }
 
