@@ -106,6 +106,90 @@ func (x *GetFlightsRequest) GetFlightNo() string {
 	return ""
 }
 
+type QueryFlightsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Airport       string                 `protobuf:"bytes,1,opt,name=airport,proto3" json:"airport,omitempty"`
+	Direction     string                 `protobuf:"bytes,2,opt,name=direction,proto3" json:"direction,omitempty"`
+	Lang          string                 `protobuf:"bytes,3,opt,name=lang,proto3" json:"lang,omitempty"`
+	Date          string                 `protobuf:"bytes,4,opt,name=date,proto3" json:"date,omitempty"`
+	Time          string                 `protobuf:"bytes,5,opt,name=time,proto3" json:"time,omitempty"`
+	FlightNo      string                 `protobuf:"bytes,6,opt,name=flight_no,json=flightNo,proto3" json:"flight_no,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QueryFlightsRequest) Reset() {
+	*x = QueryFlightsRequest{}
+	mi := &file_airports_v2_flight_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QueryFlightsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueryFlightsRequest) ProtoMessage() {}
+
+func (x *QueryFlightsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_airports_v2_flight_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueryFlightsRequest.ProtoReflect.Descriptor instead.
+func (*QueryFlightsRequest) Descriptor() ([]byte, []int) {
+	return file_airports_v2_flight_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *QueryFlightsRequest) GetAirport() string {
+	if x != nil {
+		return x.Airport
+	}
+	return ""
+}
+
+func (x *QueryFlightsRequest) GetDirection() string {
+	if x != nil {
+		return x.Direction
+	}
+	return ""
+}
+
+func (x *QueryFlightsRequest) GetLang() string {
+	if x != nil {
+		return x.Lang
+	}
+	return ""
+}
+
+func (x *QueryFlightsRequest) GetDate() string {
+	if x != nil {
+		return x.Date
+	}
+	return ""
+}
+
+func (x *QueryFlightsRequest) GetTime() string {
+	if x != nil {
+		return x.Time
+	}
+	return ""
+}
+
+func (x *QueryFlightsRequest) GetFlightNo() string {
+	if x != nil {
+		return x.FlightNo
+	}
+	return ""
+}
+
 type GetFlightsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Source        string                 `protobuf:"bytes,1,opt,name=source,proto3" json:"source,omitempty"`
@@ -122,7 +206,7 @@ type GetFlightsResponse struct {
 
 func (x *GetFlightsResponse) Reset() {
 	*x = GetFlightsResponse{}
-	mi := &file_airports_v2_flight_proto_msgTypes[1]
+	mi := &file_airports_v2_flight_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -134,7 +218,7 @@ func (x *GetFlightsResponse) String() string {
 func (*GetFlightsResponse) ProtoMessage() {}
 
 func (x *GetFlightsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_airports_v2_flight_proto_msgTypes[1]
+	mi := &file_airports_v2_flight_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -147,7 +231,7 @@ func (x *GetFlightsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetFlightsResponse.ProtoReflect.Descriptor instead.
 func (*GetFlightsResponse) Descriptor() ([]byte, []int) {
-	return file_airports_v2_flight_proto_rawDescGZIP(), []int{1}
+	return file_airports_v2_flight_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *GetFlightsResponse) GetSource() string {
@@ -219,7 +303,7 @@ type FlightsQuery struct {
 
 func (x *FlightsQuery) Reset() {
 	*x = FlightsQuery{}
-	mi := &file_airports_v2_flight_proto_msgTypes[2]
+	mi := &file_airports_v2_flight_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -231,7 +315,7 @@ func (x *FlightsQuery) String() string {
 func (*FlightsQuery) ProtoMessage() {}
 
 func (x *FlightsQuery) ProtoReflect() protoreflect.Message {
-	mi := &file_airports_v2_flight_proto_msgTypes[2]
+	mi := &file_airports_v2_flight_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -244,7 +328,7 @@ func (x *FlightsQuery) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FlightsQuery.ProtoReflect.Descriptor instead.
 func (*FlightsQuery) Descriptor() ([]byte, []int) {
-	return file_airports_v2_flight_proto_rawDescGZIP(), []int{2}
+	return file_airports_v2_flight_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *FlightsQuery) GetDirection() string {
@@ -308,7 +392,7 @@ type Flight struct {
 
 func (x *Flight) Reset() {
 	*x = Flight{}
-	mi := &file_airports_v2_flight_proto_msgTypes[3]
+	mi := &file_airports_v2_flight_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -320,7 +404,7 @@ func (x *Flight) String() string {
 func (*Flight) ProtoMessage() {}
 
 func (x *Flight) ProtoReflect() protoreflect.Message {
-	mi := &file_airports_v2_flight_proto_msgTypes[3]
+	mi := &file_airports_v2_flight_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -333,7 +417,7 @@ func (x *Flight) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Flight.ProtoReflect.Descriptor instead.
 func (*Flight) Descriptor() ([]byte, []int) {
-	return file_airports_v2_flight_proto_rawDescGZIP(), []int{3}
+	return file_airports_v2_flight_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *Flight) GetFlightNumbers() []string {
@@ -473,6 +557,13 @@ const file_airports_v2_flight_proto_rawDesc = "" +
 	"\x04lang\x18\x03 \x01(\tR\x04lang\x12\x12\n" +
 	"\x04date\x18\x04 \x01(\tR\x04date\x12\x12\n" +
 	"\x04time\x18\x05 \x01(\tR\x04time\x12\x1b\n" +
+	"\tflight_no\x18\x06 \x01(\tR\bflightNo\"\xa6\x01\n" +
+	"\x13QueryFlightsRequest\x12\x18\n" +
+	"\aairport\x18\x01 \x01(\tR\aairport\x12\x1c\n" +
+	"\tdirection\x18\x02 \x01(\tR\tdirection\x12\x12\n" +
+	"\x04lang\x18\x03 \x01(\tR\x04lang\x12\x12\n" +
+	"\x04date\x18\x04 \x01(\tR\x04date\x12\x12\n" +
+	"\x04time\x18\x05 \x01(\tR\x04time\x12\x1b\n" +
 	"\tflight_no\x18\x06 \x01(\tR\bflightNo\"\x9d\x02\n" +
 	"\x12GetFlightsResponse\x12\x16\n" +
 	"\x06source\x18\x01 \x01(\tR\x06source\x12\x18\n" +
@@ -524,19 +615,20 @@ func file_airports_v2_flight_proto_rawDescGZIP() []byte {
 	return file_airports_v2_flight_proto_rawDescData
 }
 
-var file_airports_v2_flight_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_airports_v2_flight_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_airports_v2_flight_proto_goTypes = []any{
-	(*GetFlightsRequest)(nil),  // 0: airports.v2.GetFlightsRequest
-	(*GetFlightsResponse)(nil), // 1: airports.v2.GetFlightsResponse
-	(*FlightsQuery)(nil),       // 2: airports.v2.FlightsQuery
-	(*Flight)(nil),             // 3: airports.v2.Flight
-	(*structpb.Struct)(nil),    // 4: google.protobuf.Struct
+	(*GetFlightsRequest)(nil),   // 0: airports.v2.GetFlightsRequest
+	(*QueryFlightsRequest)(nil), // 1: airports.v2.QueryFlightsRequest
+	(*GetFlightsResponse)(nil),  // 2: airports.v2.GetFlightsResponse
+	(*FlightsQuery)(nil),        // 3: airports.v2.FlightsQuery
+	(*Flight)(nil),              // 4: airports.v2.Flight
+	(*structpb.Struct)(nil),     // 5: google.protobuf.Struct
 }
 var file_airports_v2_flight_proto_depIdxs = []int32{
-	2, // 0: airports.v2.GetFlightsResponse.query:type_name -> airports.v2.FlightsQuery
-	3, // 1: airports.v2.GetFlightsResponse.items:type_name -> airports.v2.Flight
-	4, // 2: airports.v2.GetFlightsResponse.raw:type_name -> google.protobuf.Struct
-	4, // 3: airports.v2.Flight.raw:type_name -> google.protobuf.Struct
+	3, // 0: airports.v2.GetFlightsResponse.query:type_name -> airports.v2.FlightsQuery
+	4, // 1: airports.v2.GetFlightsResponse.items:type_name -> airports.v2.Flight
+	5, // 2: airports.v2.GetFlightsResponse.raw:type_name -> google.protobuf.Struct
+	5, // 3: airports.v2.Flight.raw:type_name -> google.protobuf.Struct
 	4, // [4:4] is the sub-list for method output_type
 	4, // [4:4] is the sub-list for method input_type
 	4, // [4:4] is the sub-list for extension type_name
@@ -555,7 +647,7 @@ func file_airports_v2_flight_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_airports_v2_flight_proto_rawDesc), len(file_airports_v2_flight_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

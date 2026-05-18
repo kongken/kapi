@@ -24,26 +24,30 @@ var File_airports_v2_service_proto protoreflect.FileDescriptor
 
 const file_airports_v2_service_proto_rawDesc = "" +
 	"\n" +
-	"\x19airports/v2/service.proto\x12\vairports.v2\x1a\x18airports/v2/flight.proto\x1a\x19airports/v2/weather.proto2\xae\x01\n" +
-	"\x0eAirportService\x12M\n" +
+	"\x19airports/v2/service.proto\x12\vairports.v2\x1a\x18airports/v2/flight.proto\x1a\x19airports/v2/weather.proto2\x81\x02\n" +
+	"\x0eAirportService\x12Q\n" +
+	"\fQueryFlights\x12 .airports.v2.QueryFlightsRequest\x1a\x1f.airports.v2.GetFlightsResponse\x12M\n" +
 	"\n" +
 	"GetFlights\x12\x1e.airports.v2.GetFlightsRequest\x1a\x1f.airports.v2.GetFlightsResponse\x12M\n" +
 	"\n" +
 	"GetWeather\x12\x1e.airports.v2.GetWeatherRequest\x1a\x1f.airports.v2.GetWeatherResponseB:Z8github.com/kongken/kapi/pkg/proto/airports/v2;airportsv2b\x06proto3"
 
 var file_airports_v2_service_proto_goTypes = []any{
-	(*GetFlightsRequest)(nil),  // 0: airports.v2.GetFlightsRequest
-	(*GetWeatherRequest)(nil),  // 1: airports.v2.GetWeatherRequest
-	(*GetFlightsResponse)(nil), // 2: airports.v2.GetFlightsResponse
-	(*GetWeatherResponse)(nil), // 3: airports.v2.GetWeatherResponse
+	(*QueryFlightsRequest)(nil), // 0: airports.v2.QueryFlightsRequest
+	(*GetFlightsRequest)(nil),   // 1: airports.v2.GetFlightsRequest
+	(*GetWeatherRequest)(nil),   // 2: airports.v2.GetWeatherRequest
+	(*GetFlightsResponse)(nil),  // 3: airports.v2.GetFlightsResponse
+	(*GetWeatherResponse)(nil),  // 4: airports.v2.GetWeatherResponse
 }
 var file_airports_v2_service_proto_depIdxs = []int32{
-	0, // 0: airports.v2.AirportService.GetFlights:input_type -> airports.v2.GetFlightsRequest
-	1, // 1: airports.v2.AirportService.GetWeather:input_type -> airports.v2.GetWeatherRequest
-	2, // 2: airports.v2.AirportService.GetFlights:output_type -> airports.v2.GetFlightsResponse
-	3, // 3: airports.v2.AirportService.GetWeather:output_type -> airports.v2.GetWeatherResponse
-	2, // [2:4] is the sub-list for method output_type
-	0, // [0:2] is the sub-list for method input_type
+	0, // 0: airports.v2.AirportService.QueryFlights:input_type -> airports.v2.QueryFlightsRequest
+	1, // 1: airports.v2.AirportService.GetFlights:input_type -> airports.v2.GetFlightsRequest
+	2, // 2: airports.v2.AirportService.GetWeather:input_type -> airports.v2.GetWeatherRequest
+	3, // 3: airports.v2.AirportService.QueryFlights:output_type -> airports.v2.GetFlightsResponse
+	3, // 4: airports.v2.AirportService.GetFlights:output_type -> airports.v2.GetFlightsResponse
+	4, // 5: airports.v2.AirportService.GetWeather:output_type -> airports.v2.GetWeatherResponse
+	3, // [3:6] is the sub-list for method output_type
+	0, // [0:3] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name

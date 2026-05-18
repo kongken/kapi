@@ -71,6 +71,7 @@ func registerRoutes(r *gin.Engine, httpClient szx.HTTPDoer, loader dailySnapshot
 
 	v2 := api.Group("/v2")
 	v2.GET("/airports", handleAirportList(registry))
+	v2.GET("/flights", handleFlightQuery(registry))
 	v2.GET("/airports/:airport/flights", handleAirportFlights(registry))
 	v2.GET("/airports/:airport/weather", handleAirportWeather(registry))
 }
@@ -103,41 +104,59 @@ func handleAirportList(registry *airports.Registry) gin.HandlerFunc {
 
 func handleAirportFlights(registry *airports.Registry) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		provider, ok := registry.Get(c.Param("airport"))
-		if !ok {
-			c.JSON(http.StatusNotFound, gin.H{
-				"error":   "airport_not_supported",
-				"message": "airport provider not found",
-			})
-			return
-		}
+		queryAirportFlights(c, registry, c.Param("airport"))
+	}
+}
 
-		query := airports.FlightQuery{
-			Direction: c.Query("direction"),
-			Lang:      c.DefaultQuery("lang", "cn"),
-			Date:      c.Query("date"),
-			Time:      c.Query("time"),
-			FlightNo:  c.Query("flightNo"),
-		}
-		if err := airports.ValidateFlightQuery(query); err != nil {
+func handleFlightQuery(registry *airports.Registry) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		airport := c.Query("airport")
+		if airport == "" {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error":   "invalid_query",
-				"message": err.Error(),
+				"message": "airport is required",
 			})
 			return
 		}
-
-		response, err := provider.GetFlights(c.Request.Context(), query)
-		if err != nil {
-			c.JSON(http.StatusBadGateway, gin.H{
-				"error":   "upstream_error",
-				"message": err.Error(),
-			})
-			return
-		}
-
-		c.JSON(http.StatusOK, response)
+		queryAirportFlights(c, registry, airport)
 	}
+}
+
+func queryAirportFlights(c *gin.Context, registry *airports.Registry, airport string) {
+	provider, ok := registry.Get(airport)
+	if !ok {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error":   "airport_not_supported",
+			"message": "airport provider not found",
+		})
+		return
+	}
+
+	query := airports.FlightQuery{
+		Direction: c.Query("direction"),
+		Lang:      c.DefaultQuery("lang", "cn"),
+		Date:      c.Query("date"),
+		Time:      c.Query("time"),
+		FlightNo:  c.Query("flightNo"),
+	}
+	if err := airports.ValidateFlightQuery(query); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "invalid_query",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	response, err := provider.GetFlights(c.Request.Context(), query)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{
+			"error":   "upstream_error",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 func handleAirportWeather(registry *airports.Registry) gin.HandlerFunc {

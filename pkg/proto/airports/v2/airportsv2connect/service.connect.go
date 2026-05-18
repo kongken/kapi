@@ -33,6 +33,9 @@ const (
 // reflection-formatted method names, remove the leading slash and convert the remaining slash to a
 // period.
 const (
+	// AirportServiceQueryFlightsProcedure is the fully-qualified name of the AirportService's
+	// QueryFlights RPC.
+	AirportServiceQueryFlightsProcedure = "/airports.v2.AirportService/QueryFlights"
 	// AirportServiceGetFlightsProcedure is the fully-qualified name of the AirportService's GetFlights
 	// RPC.
 	AirportServiceGetFlightsProcedure = "/airports.v2.AirportService/GetFlights"
@@ -43,6 +46,7 @@ const (
 
 // AirportServiceClient is a client for the airports.v2.AirportService service.
 type AirportServiceClient interface {
+	QueryFlights(context.Context, *connect.Request[v2.QueryFlightsRequest]) (*connect.Response[v2.GetFlightsResponse], error)
 	GetFlights(context.Context, *connect.Request[v2.GetFlightsRequest]) (*connect.Response[v2.GetFlightsResponse], error)
 	GetWeather(context.Context, *connect.Request[v2.GetWeatherRequest]) (*connect.Response[v2.GetWeatherResponse], error)
 }
@@ -58,6 +62,12 @@ func NewAirportServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 	baseURL = strings.TrimRight(baseURL, "/")
 	airportServiceMethods := v2.File_airports_v2_service_proto.Services().ByName("AirportService").Methods()
 	return &airportServiceClient{
+		queryFlights: connect.NewClient[v2.QueryFlightsRequest, v2.GetFlightsResponse](
+			httpClient,
+			baseURL+AirportServiceQueryFlightsProcedure,
+			connect.WithSchema(airportServiceMethods.ByName("QueryFlights")),
+			connect.WithClientOptions(opts...),
+		),
 		getFlights: connect.NewClient[v2.GetFlightsRequest, v2.GetFlightsResponse](
 			httpClient,
 			baseURL+AirportServiceGetFlightsProcedure,
@@ -75,8 +85,14 @@ func NewAirportServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 
 // airportServiceClient implements AirportServiceClient.
 type airportServiceClient struct {
-	getFlights *connect.Client[v2.GetFlightsRequest, v2.GetFlightsResponse]
-	getWeather *connect.Client[v2.GetWeatherRequest, v2.GetWeatherResponse]
+	queryFlights *connect.Client[v2.QueryFlightsRequest, v2.GetFlightsResponse]
+	getFlights   *connect.Client[v2.GetFlightsRequest, v2.GetFlightsResponse]
+	getWeather   *connect.Client[v2.GetWeatherRequest, v2.GetWeatherResponse]
+}
+
+// QueryFlights calls airports.v2.AirportService.QueryFlights.
+func (c *airportServiceClient) QueryFlights(ctx context.Context, req *connect.Request[v2.QueryFlightsRequest]) (*connect.Response[v2.GetFlightsResponse], error) {
+	return c.queryFlights.CallUnary(ctx, req)
 }
 
 // GetFlights calls airports.v2.AirportService.GetFlights.
@@ -91,6 +107,7 @@ func (c *airportServiceClient) GetWeather(ctx context.Context, req *connect.Requ
 
 // AirportServiceHandler is an implementation of the airports.v2.AirportService service.
 type AirportServiceHandler interface {
+	QueryFlights(context.Context, *connect.Request[v2.QueryFlightsRequest]) (*connect.Response[v2.GetFlightsResponse], error)
 	GetFlights(context.Context, *connect.Request[v2.GetFlightsRequest]) (*connect.Response[v2.GetFlightsResponse], error)
 	GetWeather(context.Context, *connect.Request[v2.GetWeatherRequest]) (*connect.Response[v2.GetWeatherResponse], error)
 }
@@ -102,6 +119,12 @@ type AirportServiceHandler interface {
 // and JSON codecs. They also support gzip compression.
 func NewAirportServiceHandler(svc AirportServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
 	airportServiceMethods := v2.File_airports_v2_service_proto.Services().ByName("AirportService").Methods()
+	airportServiceQueryFlightsHandler := connect.NewUnaryHandler(
+		AirportServiceQueryFlightsProcedure,
+		svc.QueryFlights,
+		connect.WithSchema(airportServiceMethods.ByName("QueryFlights")),
+		connect.WithHandlerOptions(opts...),
+	)
 	airportServiceGetFlightsHandler := connect.NewUnaryHandler(
 		AirportServiceGetFlightsProcedure,
 		svc.GetFlights,
@@ -116,6 +139,8 @@ func NewAirportServiceHandler(svc AirportServiceHandler, opts ...connect.Handler
 	)
 	return "/airports.v2.AirportService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
+		case AirportServiceQueryFlightsProcedure:
+			airportServiceQueryFlightsHandler.ServeHTTP(w, r)
 		case AirportServiceGetFlightsProcedure:
 			airportServiceGetFlightsHandler.ServeHTTP(w, r)
 		case AirportServiceGetWeatherProcedure:
@@ -128,6 +153,10 @@ func NewAirportServiceHandler(svc AirportServiceHandler, opts ...connect.Handler
 
 // UnimplementedAirportServiceHandler returns CodeUnimplemented from all methods.
 type UnimplementedAirportServiceHandler struct{}
+
+func (UnimplementedAirportServiceHandler) QueryFlights(context.Context, *connect.Request[v2.QueryFlightsRequest]) (*connect.Response[v2.GetFlightsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("airports.v2.AirportService.QueryFlights is not implemented"))
+}
 
 func (UnimplementedAirportServiceHandler) GetFlights(context.Context, *connect.Request[v2.GetFlightsRequest]) (*connect.Response[v2.GetFlightsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("airports.v2.AirportService.GetFlights is not implemented"))
