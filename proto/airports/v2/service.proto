@@ -9,9 +9,11 @@ option go_package = "github.com/kongken/kapi/pkg/proto/airports/v2;airportsv2";
 
 // AirportService defines the v2 airport API contract.
 // Planned HTTP mapping:
+// - /api/v2/flights
 // - /api/v2/airports/{airport}/flights
 // - /api/v2/airports/{airport}/weather
 service AirportService {
+  rpc QueryFlights(QueryFlightsRequest) returns (GetFlightsResponse);
   rpc GetFlights(GetFlightsRequest) returns (GetFlightsResponse);
   rpc GetWeather(GetWeatherRequest) returns (GetWeatherResponse);
 }

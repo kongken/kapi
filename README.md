@@ -33,6 +33,7 @@ Minimal Go/Gin API service with Shenzhen Airport flight proxy endpoints.
    curl 'http://localhost:8080/api/v1/szx/departures/today'
    curl 'http://localhost:8080/api/v1/szx/arrivals/today'
    curl 'http://localhost:8080/api/v1/szx/weather'
+   curl 'http://localhost:8080/api/v2/flights?airport=szx&direction=departure&flightNo=CZ5387'
    ```
 
 ## Files
@@ -59,6 +60,7 @@ This repository now uses `protobuf + buf` to manage the next-generation airport 
 
 Current v2 API contract:
 
+- `GET /api/v2/flights`
 - `GET /api/v2/airports/{airport}/flights`
 - `GET /api/v2/airports/{airport}/weather`
 
@@ -68,6 +70,27 @@ Common commands:
 make proto
 make proto-lint
 ```
+
+### v2 Flight Query API
+
+- `GET /api/v2/flights`
+
+Supported query parameters:
+
+- `airport`: required airport code, currently `szx` or `can`
+- `direction`: required, `departure` or `arrival`
+- `lang`: optional, `cn` or `en`, default `cn`
+- `date`: optional upstream date selector, numeric when provided
+- `time`: optional upstream time selector, numeric when provided
+- `flightNo`: optional flight number filter when supported by the airport provider
+
+Example:
+
+```bash
+curl 'http://localhost:8080/api/v2/flights?airport=szx&direction=departure&lang=en&date=1&time=8&flightNo=CZ5387'
+```
+
+The response uses the same normalized payload as `GET /api/v2/airports/{airport}/flights`: `source`, `airport`, `resource`, `direction`, `query`, `total`, `items`, and optional `raw`.
 
 ## SZX API
 

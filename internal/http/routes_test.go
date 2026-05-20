@@ -101,6 +101,96 @@ func TestV2AirportFlightsRoute(t *testing.T) {
 	}
 }
 
+func TestV2FlightQueryRoute(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	RegisterRoutes(router, newTestHTTPClient(func(req *nethttp.Request) (*nethttp.Response, error) {
+		if req.URL.Query().Get("flag") != "D" {
+			t.Fatalf("expected departure flag D, got %q", req.URL.Query().Get("flag"))
+		}
+		if req.URL.Query().Get("type") != "en" {
+			t.Fatalf("expected type=en, got %q", req.URL.Query().Get("type"))
+		}
+		if req.URL.Query().Get("currentDate") != "1" {
+			t.Fatalf("expected currentDate=1, got %q", req.URL.Query().Get("currentDate"))
+		}
+		if req.URL.Query().Get("currentTime") != "8" {
+			t.Fatalf("expected currentTime=8, got %q", req.URL.Query().Get("currentTime"))
+		}
+		if req.URL.Query().Get("hbxx_hbh") != "CZ5387" {
+			t.Fatalf("expected flight number filter, got %q", req.URL.Query().Get("hbxx_hbh"))
+		}
+
+		body := `{"flightList":[{"startSchemeTakeoffTime":"16:00","terminalSchemeLandinTime":"18:40","startRealTakeoffTime":"16:12","terminalRealLandinTime":"--:--","hbh":[{"flightNo":"CZ5387"}],"shareflightairport":[{"imgSrc":"/app-editor/ewebeditor/uploadfile/airlineslogo/CZ.png"}],"gateCode":"324","gatedesp":"","startStationThreecharcode":"Shenzhen","terminalStationThreecharcode":"Chengdu Shuangliu","fltNormalStatus":"DEPARTED","fltNormalStatus2":"D","ckls":"A,B01-B12","fces_fcee":"14:00-15:22","apot":"T3","blls":"","craftType":"A21N"}],"type":"en","currentDate":1,"currentTime":8,"hbxx_hbh":"CZ5387"}`
+		return &nethttp.Response{
+			StatusCode: nethttp.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(body)),
+			Header:     make(nethttp.Header),
+		}, nil
+	}))
+
+	req := httptest.NewRequest(nethttp.MethodGet, "/api/v2/flights?airport=szx&direction=departure&lang=en&date=1&time=8&flightNo=CZ5387", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	if recorder.Code != nethttp.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `"airport":"szx"`) {
+		t.Fatalf("expected airport code, got %s", body)
+	}
+	if !strings.Contains(body, `"resource":"flights"`) {
+		t.Fatalf("expected flights resource, got %s", body)
+	}
+	if !strings.Contains(body, `"flightNumbers":["CZ5387"]`) {
+		t.Fatalf("expected normalized flight numbers, got %s", body)
+	}
+}
+
+func TestV2FlightQueryRouteRejectsMissingAirport(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	RegisterRoutes(router, newTestHTTPClient(func(req *nethttp.Request) (*nethttp.Response, error) {
+		t.Fatal("unexpected upstream call")
+		return nil, nil
+	}))
+
+	req := httptest.NewRequest(nethttp.MethodGet, "/api/v2/flights?direction=departure", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	if recorder.Code != nethttp.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"message":"airport is required"`) {
+		t.Fatalf("expected airport validation message, got %s", recorder.Body.String())
+	}
+}
+
+func TestV2FlightQueryRouteRejectsUnknownAirport(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	RegisterRoutes(router, newTestHTTPClient(func(req *nethttp.Request) (*nethttp.Response, error) {
+		t.Fatal("unexpected upstream call")
+		return nil, nil
+	}))
+
+	req := httptest.NewRequest(nethttp.MethodGet, "/api/v2/flights?airport=pek&direction=departure", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	if recorder.Code != nethttp.StatusNotFound {
+		t.Fatalf("expected status 404, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"error":"airport_not_supported"`) {
+		t.Fatalf("expected airport_not_supported response, got %s", recorder.Body.String())
+	}
+}
+
 func TestV2AirportListRoute(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
