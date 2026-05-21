@@ -16,6 +16,7 @@ import (
 	"log/slog"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -85,12 +86,12 @@ type redisCache struct {
 }
 
 type FlightRequest struct {
-	Type      string `json:"type"`
-	Terminal  string `json:"terminal"`
-	Day       int    `json:"day"`
-	DepOrArr  string `json:"depOrArr"`
-	PageNum   int    `json:"pageNum"`
-	PageSize  int    `json:"pageSize"`
+	Type     string `json:"type"`
+	Terminal string `json:"terminal"`
+	Day      int    `json:"day"`
+	DepOrArr string `json:"depOrArr"`
+	PageNum  int    `json:"pageNum"`
+	PageSize int    `json:"pageSize"`
 }
 
 type UpstreamCarouselFlight struct {
@@ -146,33 +147,33 @@ type UpstreamListResponse struct {
 }
 
 type Flight struct {
-	FlightNumbers    []string        `json:"flightNumbers"`
-	AirlineLogos     []string        `json:"airlineLogos"`
-	PlannedDeparture string          `json:"plannedDepartureTime"`
-	PlannedArrival   string          `json:"plannedArrivalTime"`
-	ActualDeparture  string          `json:"actualDepartureTime"`
-	ActualArrival    string          `json:"actualArrivalTime"`
-	DepartureAirport string          `json:"departureAirport"`
-	ArrivalAirport   string          `json:"arrivalAirport"`
-	Terminal         string          `json:"terminal"`
-	Gate             string          `json:"gate"`
-	GateDescription  string          `json:"gateDescription"`
-	BaggageBelt      string          `json:"baggageBelt"`
-	CheckInArea      string          `json:"checkInArea"`
-	CheckInWindow    string          `json:"checkInWindow"`
-	StatusText       string          `json:"statusText"`
-	StatusCode       string          `json:"statusCode"`
-	AircraftType     string          `json:"aircraftType"`
-	Raw              UpstreamFlight  `json:"raw"`
+	FlightNumbers    []string       `json:"flightNumbers"`
+	AirlineLogos     []string       `json:"airlineLogos"`
+	PlannedDeparture string         `json:"plannedDepartureTime"`
+	PlannedArrival   string         `json:"plannedArrivalTime"`
+	ActualDeparture  string         `json:"actualDepartureTime"`
+	ActualArrival    string         `json:"actualArrivalTime"`
+	DepartureAirport string         `json:"departureAirport"`
+	ArrivalAirport   string         `json:"arrivalAirport"`
+	Terminal         string         `json:"terminal"`
+	Gate             string         `json:"gate"`
+	GateDescription  string         `json:"gateDescription"`
+	BaggageBelt      string         `json:"baggageBelt"`
+	CheckInArea      string         `json:"checkInArea"`
+	CheckInWindow    string         `json:"checkInWindow"`
+	StatusText       string         `json:"statusText"`
+	StatusCode       string         `json:"statusCode"`
+	AircraftType     string         `json:"aircraftType"`
+	Raw              UpstreamFlight `json:"raw"`
 }
 
 type Response struct {
-	Source    string          `json:"source"`
-	Direction string         `json:"direction"`
-	Query     FlightRequest  `json:"query"`
-	Total     int            `json:"total"`
-	Flights   []Flight       `json:"flights"`
-	Raw       any            `json:"raw"`
+	Source    string        `json:"source"`
+	Direction string        `json:"direction"`
+	Query     FlightRequest `json:"query"`
+	Total     int           `json:"total"`
+	Flights   []Flight      `json:"flights"`
+	Raw       any           `json:"raw"`
 }
 
 func NewClient(httpClient HTTPDoer) *Client {
@@ -194,8 +195,12 @@ func NewDefaultClient() *Client {
 	return NewClient(http.DefaultClient)
 }
 
-func (c *Client) Fetch(ctx context.Context, direction string, lang string) (Response, error) {
+func (c *Client) Fetch(ctx context.Context, direction string, lang string, date string) (Response, error) {
 	depOrArr, err := directionToDepOrArr(direction)
+	if err != nil {
+		return Response{}, err
+	}
+	day, err := dateToDay(date)
 	if err != nil {
 		return Response{}, err
 	}
@@ -203,13 +208,13 @@ func (c *Client) Fetch(ctx context.Context, direction string, lang string) (Resp
 	query := FlightRequest{
 		Type:     "1",
 		Terminal: "",
-		Day:      0,
+		Day:      day,
 		DepOrArr: depOrArr,
 		PageNum:  1,
 		PageSize: 500,
 	}
 
-	cacheKey := flightsCacheKey(direction, lang)
+	cacheKey := flightsCacheKey(direction, lang, date)
 	if cached, ok := c.loadCachedResponse(ctx, cacheKey); ok {
 		slog.Info("returning cached CAN flights response", "direction", direction, "total", cached.Total)
 		return cached, nil
@@ -388,6 +393,18 @@ func directionToDepOrArr(direction string) (string, error) {
 	}
 }
 
+func dateToDay(date string) (int, error) {
+	if date == "" {
+		return 0, nil
+	}
+	for _, ch := range date {
+		if ch < '0' || ch > '9' {
+			return 0, errors.New("date must be numeric")
+		}
+	}
+	return strconv.Atoi(date)
+}
+
 func resolveLogoURL(path string) string {
 	if strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") {
 		return path
@@ -465,8 +482,8 @@ func (c *redisCache) Set(ctx context.Context, key string, value string, ttl time
 	return c.client.Set(ctx, key, value, ttl).Err()
 }
 
-func flightsCacheKey(direction string, lang string) string {
-	sum := sha256.Sum256([]byte(fmt.Sprintf("%s|%s", direction, lang)))
+func flightsCacheKey(direction string, lang string, date string) string {
+	sum := sha256.Sum256([]byte(fmt.Sprintf("%s|%s|%s", direction, lang, date)))
 	return fmt.Sprintf("%s%x", flightsCachePrefix, sum)
 }
 
@@ -506,7 +523,7 @@ func (c *Client) storeCachedResponse(ctx context.Context, cacheKey string, respo
 }
 
 func (c *Client) FetchDailyFlights(ctx context.Context, direction string) ([]byte, error) {
-	response, err := c.Fetch(ctx, direction, "cn")
+	response, err := c.Fetch(ctx, direction, "cn", "")
 	if err != nil {
 		return nil, fmt.Errorf("fetch CAN daily flights: %w", err)
 	}
