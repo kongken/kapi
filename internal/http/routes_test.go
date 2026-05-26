@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	nethttp "net/http"
 	"net/http/httptest"
@@ -146,6 +147,49 @@ func TestV2FlightQueryRoute(t *testing.T) {
 	}
 	if !strings.Contains(body, `"flightNumbers":["CZ5387"]`) {
 		t.Fatalf("expected normalized flight numbers, got %s", body)
+	}
+}
+
+func TestV2FlightQueryRoutePassesDateToCAN(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	RegisterRoutes(router, newTestHTTPClient(func(req *nethttp.Request) (*nethttp.Response, error) {
+		var upstreamRequest struct {
+			Day      int    `json:"day"`
+			DepOrArr string `json:"depOrArr"`
+		}
+		if err := json.NewDecoder(req.Body).Decode(&upstreamRequest); err != nil {
+			t.Fatalf("failed to decode upstream request: %v", err)
+		}
+		if upstreamRequest.Day != 2 {
+			t.Fatalf("expected upstream day 2, got %d", upstreamRequest.Day)
+		}
+		if upstreamRequest.DepOrArr != "1" {
+			t.Fatalf("expected departure depOrArr 1, got %q", upstreamRequest.DepOrArr)
+		}
+
+		body := `{"code":"200","msg":"success","data":{"list":[{"flightNo":"CZ3456","flightDate":"2026-04-28","flightId":"12345","airline":"CZ","airlineCn":"南方航空","airlineEn":"China Southern","setoffTimePlan":"2026-04-28 08:30:00","setoffTimeAct":"","setoffTimePred":"","arriTimePlan":"2026-04-28 11:00:00","arriTimeAct":"","boardingTime":"","orgCityCn":"广州","orgCityEn":"Guangzhou","orgCity":"CAN","dstCityCn":"北京","dstCityEn":"Beijing","dstCity":"PEK","terminal":"T2","depTerminal":"T2","checkInCounter":"A01-A10","boardingGate":"B12","baggageTable":"","arrExit":"","flightStatusCn":"计划","flightStatusEn":"Scheduled","planeModle":"B738","depOrArr":"D","domesticOrIntl":"D","flightTask":"W/Z","isStop":0,"isShare":0,"transferCityNameCn":"","transferCityNameEn":"","shareFlight":[],"carouselFLights":[]}]}}`
+		return &nethttp.Response{
+			StatusCode: nethttp.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(body)),
+			Header:     make(nethttp.Header),
+		}, nil
+	}))
+
+	req := httptest.NewRequest(nethttp.MethodGet, "/api/v2/flights?airport=can&direction=departure&lang=cn&date=2", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	if recorder.Code != nethttp.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `"airport":"can"`) {
+		t.Fatalf("expected airport code, got %s", body)
+	}
+	if !strings.Contains(body, `"date":"2"`) {
+		t.Fatalf("expected response query date, got %s", body)
 	}
 }
 

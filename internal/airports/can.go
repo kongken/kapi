@@ -30,7 +30,7 @@ func (p *CANProvider) Info() AirportInfo {
 }
 
 func (p *CANProvider) GetFlights(ctx context.Context, query FlightQuery) (FlightsResponse, error) {
-	response, err := p.client.Fetch(ctx, query.Direction, query.Lang)
+	response, err := p.client.Fetch(ctx, query.Direction, query.Lang, query.Date)
 	if err != nil {
 		return FlightsResponse{}, err
 	}
@@ -67,6 +67,7 @@ func (p *CANProvider) GetFlights(ctx context.Context, query FlightQuery) (Flight
 		Query: FlightQuery{
 			Direction: query.Direction,
 			Lang:      query.Lang,
+			Date:      query.Date,
 		},
 		Total: response.Total,
 		Items: items,

@@ -2,6 +2,7 @@ package can
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"strings"
@@ -127,6 +128,13 @@ func TestFetchNormalizesResponse(t *testing.T) {
 		if req.Header.Get("Nonce") == "" {
 			t.Fatal("expected Nonce header")
 		}
+		var upstreamRequest FlightRequest
+		if err := json.NewDecoder(req.Body).Decode(&upstreamRequest); err != nil {
+			t.Fatalf("failed to decode upstream request: %v", err)
+		}
+		if upstreamRequest.Day != 2 {
+			t.Fatalf("expected upstream day 2, got %d", upstreamRequest.Day)
+		}
 
 		body := `{"code":"200","msg":"success","data":{"list":[{"flightNo":"CZ3456","flightDate":"2026-04-28","flightId":"12345","airline":"CZ","airlineCn":"南方航空","airlineEn":"China Southern","setoffTimePlan":"2026-04-28 08:30:00","setoffTimeAct":"2026-04-28 08:35:00","setoffTimePred":"2026-04-28 08:30:00","arriTimePlan":"2026-04-28 11:00:00","arriTimeAct":"","boardingTime":"","orgCityCn":"广州","orgCityEn":"Guangzhou","orgCity":"CAN","dstCityCn":"北京","dstCityEn":"Beijing","dstCity":"PEK","terminal":"T2","depTerminal":"T2","checkInCounter":"A01-A10","boardingGate":"B12","baggageTable":"","arrExit":"","flightStatusCn":"已起飞","flightStatusEn":"Departed","planeModle":"B738","depOrArr":"D","domesticOrIntl":"D","flightTask":"W/Z","isStop":0,"isShare":1,"transferCityNameCn":"","transferCityNameEn":"","shareFlight":["MU1234"],"carouselFLights":[{"flightNo":"CZ3456","logo":"/logos/CZ.png"}]}]}}`
 		return &http.Response{
@@ -136,7 +144,7 @@ func TestFetchNormalizesResponse(t *testing.T) {
 		}, nil
 	}), cache, time.Minute)
 
-	resp, err := client.Fetch(context.Background(), "departure", "cn")
+	resp, err := client.Fetch(context.Background(), "departure", "cn", "2")
 	if err != nil {
 		t.Fatalf("Fetch returned error: %v", err)
 	}
@@ -191,7 +199,7 @@ func TestFetchNormalizesResponse(t *testing.T) {
 }
 
 func TestFetchUsesCachedResponse(t *testing.T) {
-	cacheKey := flightsCacheKey("departure", "cn")
+	cacheKey := flightsCacheKey("departure", "cn", "2")
 	cache := &memoryCache{
 		values: map[string]string{
 			cacheKey: `{"source":"baiyunairport","direction":"departure","query":{},"total":1,"flights":[{"flightNumbers":["CZ3456"]}]}`,
@@ -203,7 +211,7 @@ func TestFetchUsesCachedResponse(t *testing.T) {
 		return nil, nil
 	}), cache, time.Minute)
 
-	resp, err := client.Fetch(context.Background(), "departure", "cn")
+	resp, err := client.Fetch(context.Background(), "departure", "cn", "2")
 	if err != nil {
 		t.Fatalf("Fetch returned error: %v", err)
 	}

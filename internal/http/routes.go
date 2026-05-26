@@ -224,7 +224,7 @@ func handleCANFlightInfo(client *can.Client, direction string) gin.HandlerFunc {
 			return
 		}
 
-		response, err := client.Fetch(c.Request.Context(), direction, lang)
+		response, err := client.Fetch(c.Request.Context(), direction, lang, c.Query("date"))
 		if err != nil {
 			c.JSON(http.StatusBadGateway, gin.H{
 				"error":   "upstream_error",
