@@ -160,16 +160,17 @@ func scheduledHour(direction string, item szx.Flight) (int, bool) {
 func classifyDelayTrendFlight(item szx.Flight, accumulator *delayTrendAccumulator) {
 	accumulator.Flights++
 
-	status := strings.TrimSpace(item.StatusText + " " + item.StatusCode)
-	if strings.Contains(status, "取消") || strings.Contains(strings.ToLower(status), "cancel") {
+	statusText := strings.ToLower(strings.TrimSpace(item.StatusText))
+	statusCode := strings.ToUpper(strings.TrimSpace(item.StatusCode))
+	if statusCode == "C" || statusCode == "CANCEL" || statusCode == "CANCELLED" || strings.Contains(statusText, "取消") || strings.Contains(statusText, "cancel") {
 		accumulator.Cancelled++
 		return
 	}
-	if strings.Contains(status, "备降") || strings.Contains(strings.ToLower(status), "divert") {
+	if statusCode == "DIVERT" || statusCode == "DIVERTED" || strings.Contains(statusText, "备降") || strings.Contains(statusText, "divert") {
 		accumulator.Diverted++
 		return
 	}
-	if strings.Contains(status, "延误") || strings.Contains(strings.ToLower(status), "delay") {
+	if statusCode == "DELAY" || statusCode == "DELAYED" || strings.Contains(statusText, "延误") || strings.Contains(statusText, "delay") {
 		accumulator.Delayed++
 	}
 }

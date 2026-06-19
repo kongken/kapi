@@ -48,3 +48,19 @@ func TestBuildSZXDelayTrendRequiresSnapshot(t *testing.T) {
 		t.Fatalf("expected ErrDelayTrendNoSnapshots, got %v", err)
 	}
 }
+
+func TestBuildSZXDelayTrendClassifiesStatusCodes(t *testing.T) {
+	response, err := BuildSZXDelayTrend(map[string][]byte{
+		"departure": []byte(`{"source":"szairport","direction":"departure","total":4,"flights":[{"plannedDepartureTime":"08:10","statusCode":"DELAYED"},{"plannedDepartureTime":"08:20","statusCode":"C"},{"plannedDepartureTime":"08:30","statusCode":"DIVERTED"},{"plannedDepartureTime":"08:40","statusCode":"D","statusText":"DEPARTED"}]}`),
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if response.Total.Flights != 4 {
+		t.Fatalf("expected 4 flights, got %d", response.Total.Flights)
+	}
+	if response.Total.Delayed != 1 || response.Total.Cancelled != 1 || response.Total.Diverted != 1 || response.Total.Affected != 3 {
+		t.Fatalf("unexpected total counters: %+v", response.Total)
+	}
+}
