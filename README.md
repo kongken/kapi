@@ -32,6 +32,7 @@ Minimal Go/Gin API service with Shenzhen Airport flight proxy endpoints.
    curl 'http://localhost:8080/api/v1/szx/arrivals?flightNo=CA1303'
    curl 'http://localhost:8080/api/v1/szx/departures/today'
    curl 'http://localhost:8080/api/v1/szx/arrivals/today'
+   curl 'http://localhost:8080/api/v1/szx/delay-trend'
    curl 'http://localhost:8080/api/v1/szx/weather'
    curl 'http://localhost:8080/api/v2/flights?airport=szx&direction=departure&flightNo=CZ5387'
    ```
@@ -98,6 +99,7 @@ The response uses the same normalized payload as `GET /api/v2/airports/{airport}
 - `GET /api/v1/szx/arrivals`
 - `GET /api/v1/szx/departures/today`
 - `GET /api/v1/szx/arrivals/today`
+- `GET /api/v1/szx/delay-trend`
 - `GET /api/v1/szx/weather`
 
 Supported query parameters:
@@ -118,6 +120,8 @@ The response includes the original upstream payload in `raw` and a normalized `f
 The `*/today` endpoints return the latest merged all-day snapshot stored in S3. They aggregate `currentTime=0..12` for `currentDate=1` and deduplicate flights into a single daily response.
 
 To reduce response time, the latest `*/today` snapshot is also cached in Redis when the daily sync job runs. The endpoint reads Redis first and falls back to S3 if the cache is cold.
+
+The delay trend endpoint reads the latest SZX arrival and departure daily snapshots and returns hourly buckets with total flights, delayed flights, cancelled flights, diverted flights, affected flights, and delay ratio. Flights are bucketed by scheduled departure time for departures and scheduled arrival time for arrivals.
 
 The weather endpoint wraps the Shenzhen Airport JSONP weather interface and returns a normalized `weathers` array with date, high, low, weather text, icon URL, and raw upstream fields.
 

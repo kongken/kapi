@@ -458,6 +458,70 @@ func TestSZXDailyDeparturesRouteReturnsNotFound(t *testing.T) {
 	}
 }
 
+func TestSZXDelayTrendRoute(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	registerRoutes(router, newTestHTTPClient(func(req *nethttp.Request) (*nethttp.Response, error) {
+		t.Fatal("unexpected upstream call")
+		return nil, nil
+	}), testDailySnapshotLoader(func(_ context.Context, airportCode string, direction string) ([]byte, error) {
+		if airportCode != "szx" {
+			t.Fatalf("unexpected airport code %s", airportCode)
+		}
+		switch direction {
+		case "departure":
+			return []byte(`{"source":"szairport","direction":"departure","total":2,"flights":[{"plannedDepartureTime":"08:10","statusText":"延误"},{"plannedDepartureTime":"09:00","statusText":"已起飞"}]}`), nil
+		case "arrival":
+			return []byte(`{"source":"szairport","direction":"arrival","total":1,"flights":[{"plannedArrivalTime":"08:20","statusText":"取消"}]}`), nil
+		default:
+			t.Fatalf("unexpected direction %s", direction)
+			return nil, nil
+		}
+	}))
+
+	req := httptest.NewRequest(nethttp.MethodGet, "/api/v1/szx/delay-trend", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	if recorder.Code != nethttp.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `"resource":"delay_trend"`) {
+		t.Fatalf("expected delay trend resource, got %s", body)
+	}
+	if !strings.Contains(body, `"timeRange":"08:00-08:59"`) {
+		t.Fatalf("expected 08:00 bucket, got %s", body)
+	}
+	if !strings.Contains(body, `"affected":2`) {
+		t.Fatalf("expected affected count, got %s", body)
+	}
+}
+
+func TestSZXDelayTrendRouteReturnsNotFound(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	registerRoutes(router, newTestHTTPClient(func(req *nethttp.Request) (*nethttp.Response, error) {
+		t.Fatal("unexpected upstream call")
+		return nil, nil
+	}), testDailySnapshotLoader(func(_ context.Context, airportCode string, direction string) ([]byte, error) {
+		return nil, flight.ErrDailySnapshotNotFound
+	}))
+
+	req := httptest.NewRequest(nethttp.MethodGet, "/api/v1/szx/delay-trend", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	if recorder.Code != nethttp.StatusNotFound {
+		t.Fatalf("expected status 404, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"error":"daily_snapshot_not_found"`) {
+		t.Fatalf("expected not found error, got %s", recorder.Body.String())
+	}
+}
+
 func TestCANDailyDeparturesRoute(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
