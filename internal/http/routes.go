@@ -62,6 +62,7 @@ func registerRoutes(r *gin.Engine, httpClient szx.HTTPDoer, loader dailySnapshot
 	v1.GET("/szx/arrivals", handleSZXFlightInfo(szxClient, "arrival"))
 	v1.GET("/szx/departures/today", handleDailyFlights(loader, "szx", "departure"))
 	v1.GET("/szx/arrivals/today", handleDailyFlights(loader, "szx", "arrival"))
+	v1.GET("/szx/delay-trend", handleSZXDelayTrend(loader))
 	v1.GET("/szx/weather", handleSZXWeather(szxClient))
 
 	v1.GET("/can/departures", handleCANFlightInfo(canClient, "departure"))
@@ -308,5 +309,83 @@ func handleDailyFlights(loader dailySnapshotLoader, airportCode string, directio
 			"referer", c.Request.Referer(),
 		)
 		c.Data(http.StatusOK, "application/json; charset=utf-8", data)
+	}
+}
+
+func handleSZXDelayTrend(loader dailySnapshotLoader) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		start := time.Now()
+
+		snapshots := make(map[string][]byte, 2)
+		for _, direction := range []string{"departure", "arrival"} {
+			data, err := loader.Load(c.Request.Context(), "szx", direction)
+			if err != nil {
+				elapsed := time.Since(start)
+				if errors.Is(err, flight.ErrDailySnapshotNotFound) {
+					slog.Info("szx delay trend request",
+						"path", c.Request.URL.Path,
+						"direction", direction,
+						"status", http.StatusNotFound,
+						"elapsed", elapsed,
+						"client_ip", c.ClientIP(),
+						"user_agent", c.Request.UserAgent(),
+						"referer", c.Request.Referer(),
+					)
+					c.JSON(http.StatusNotFound, gin.H{
+						"error":   "daily_snapshot_not_found",
+						"message": "daily flights snapshot not found",
+					})
+					return
+				}
+
+				slog.Error("szx delay trend request failed",
+					"path", c.Request.URL.Path,
+					"direction", direction,
+					"status", http.StatusBadGateway,
+					"elapsed", elapsed,
+					"client_ip", c.ClientIP(),
+					"user_agent", c.Request.UserAgent(),
+					"referer", c.Request.Referer(),
+					"error", err,
+				)
+				c.JSON(http.StatusBadGateway, gin.H{
+					"error":   "daily_snapshot_unavailable",
+					"message": err.Error(),
+				})
+				return
+			}
+			snapshots[direction] = data
+		}
+
+		response, err := flight.BuildSZXDelayTrend(snapshots)
+		if err != nil {
+			elapsed := time.Since(start)
+			slog.Error("szx delay trend build failed",
+				"path", c.Request.URL.Path,
+				"status", http.StatusBadGateway,
+				"elapsed", elapsed,
+				"client_ip", c.ClientIP(),
+				"user_agent", c.Request.UserAgent(),
+				"referer", c.Request.Referer(),
+				"error", err,
+			)
+			c.JSON(http.StatusBadGateway, gin.H{
+				"error":   "delay_trend_unavailable",
+				"message": err.Error(),
+			})
+			return
+		}
+
+		elapsed := time.Since(start)
+		slog.Info("szx delay trend request",
+			"path", c.Request.URL.Path,
+			"status", http.StatusOK,
+			"elapsed", elapsed,
+			"buckets", len(response.Buckets),
+			"client_ip", c.ClientIP(),
+			"user_agent", c.Request.UserAgent(),
+			"referer", c.Request.Referer(),
+		)
+		c.JSON(http.StatusOK, response)
 	}
 }
