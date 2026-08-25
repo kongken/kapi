@@ -29,6 +29,7 @@ func main() {
 		Config:    svcConfig,
 		Router: func(r *gin.Engine) {
 			apihttp.RegisterRoutes(r, http.DefaultClient)
+			apihttp.RegisterMCP(r, http.DefaultClient)
 		},
 		InitFunc: []func() error{
 			startDailyFlightSync(svcConfig, syncer),

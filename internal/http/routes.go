@@ -12,11 +12,43 @@ import (
 	"github.com/kongken/kapi/internal/airports"
 	"github.com/kongken/kapi/internal/can"
 	"github.com/kongken/kapi/internal/flight"
+	kapimcp "github.com/kongken/kapi/internal/mcp"
 	"github.com/kongken/kapi/internal/szx"
 )
 
 func RegisterRoutes(r *gin.Engine, httpClient szx.HTTPDoer) {
 	registerRoutes(r, httpClient, dailySnapshotLoaderFunc(flight.LoadDailySnapshot))
+}
+
+// services bundles the airport data sources shared by REST routes and the MCP endpoint.
+type services struct {
+	szxClient *szx.Client
+	canClient *can.Client
+	registry  *airports.Registry
+	loader    dailySnapshotLoader
+}
+
+func newServices(httpClient szx.HTTPDoer, loader dailySnapshotLoader) *services {
+	return &services{
+		szxClient: szx.NewClient(httpClient),
+		canClient: can.NewClient(httpClient),
+		registry: airports.NewRegistry(
+			airports.NewSZXProvider(httpClient),
+			airports.NewCANProvider(httpClient),
+		),
+		loader: loader,
+	}
+}
+
+// RegisterMCP mounts the MCP Streamable HTTP endpoint at /mcp on the same server,
+// reusing the same airport providers and snapshot loader as the REST API.
+func RegisterMCP(r *gin.Engine, httpClient szx.HTTPDoer) {
+	svc := newServices(httpClient, dailySnapshotLoaderFunc(flight.LoadDailySnapshot))
+	handler := kapimcp.Handler(kapimcp.Options{
+		Registry: svc.registry,
+		Loader:   svc.loader,
+	})
+	r.Any("/mcp", gin.WrapH(handler))
 }
 
 type dailySnapshotLoader interface {
@@ -30,12 +62,10 @@ func (f dailySnapshotLoaderFunc) Load(ctx context.Context, airportCode string, d
 }
 
 func registerRoutes(r *gin.Engine, httpClient szx.HTTPDoer, loader dailySnapshotLoader) {
-	szxClient := szx.NewClient(httpClient)
-	canClient := can.NewClient(httpClient)
-	registry := airports.NewRegistry(
-		airports.NewSZXProvider(httpClient),
-		airports.NewCANProvider(httpClient),
-	)
+	svc := newServices(httpClient, loader)
+	szxClient := svc.szxClient
+	canClient := svc.canClient
+	registry := svc.registry
 
 	r.Use(corsMiddleware())
 
