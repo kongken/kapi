@@ -1,7 +1,6 @@
 package http
 
 import (
-	"context"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -17,19 +16,34 @@ import (
 )
 
 func RegisterRoutes(r *gin.Engine, httpClient szx.HTTPDoer) {
-	registerRoutes(r, httpClient, dailySnapshotLoaderFunc(flight.LoadDailySnapshot))
+	NewServices(httpClient).registerREST(r)
 }
 
-// services bundles the airport data sources shared by REST routes and the MCP endpoint.
-type services struct {
+// RegisterAll mounts the REST API and the MCP endpoint on r, backed by ONE
+// shared set of provider/client/loader instances so both surfaces serve
+// identical data.
+func RegisterAll(r *gin.Engine, httpClient szx.HTTPDoer) {
+	svc := NewServices(httpClient)
+	svc.registerREST(r)
+	svc.registerMCP(r)
+}
+
+// Services bundles the airport data sources used by both the REST routes and
+// the MCP endpoint.
+type Services struct {
 	szxClient *szx.Client
 	canClient *can.Client
 	registry  *airports.Registry
-	loader    dailySnapshotLoader
+	loader    kapimcp.SnapshotLoader
 }
 
-func newServices(httpClient szx.HTTPDoer, loader dailySnapshotLoader) *services {
-	return &services{
+// NewServices builds the shared data layer once for REST + MCP.
+func NewServices(httpClient szx.HTTPDoer) *Services {
+	return newServices(httpClient, kapimcp.SnapshotLoaderFunc(flight.LoadDailySnapshot))
+}
+
+func newServices(httpClient szx.HTTPDoer, loader kapimcp.SnapshotLoader) *Services {
+	return &Services{
 		szxClient: szx.NewClient(httpClient),
 		canClient: can.NewClient(httpClient),
 		registry: airports.NewRegistry(
@@ -40,32 +54,26 @@ func newServices(httpClient szx.HTTPDoer, loader dailySnapshotLoader) *services 
 	}
 }
 
-// RegisterMCP mounts the MCP Streamable HTTP endpoint at /mcp on the same server,
-// reusing the same airport providers and snapshot loader as the REST API.
-func RegisterMCP(r *gin.Engine, httpClient szx.HTTPDoer) {
-	svc := newServices(httpClient, dailySnapshotLoaderFunc(flight.LoadDailySnapshot))
+func (s *Services) registerMCP(r *gin.Engine) {
 	handler := kapimcp.Handler(kapimcp.Options{
-		Registry: svc.registry,
-		Loader:   svc.loader,
+		Registry: s.registry,
+		Loader:   s.loader,
 	})
 	r.Any("/mcp", gin.WrapH(handler))
 }
 
-type dailySnapshotLoader interface {
-	Load(ctx context.Context, airportCode string, direction string) ([]byte, error)
+// registerRoutes is kept as an unexported shim for focused route tests that
+// inject a custom snapshot loader.
+func registerRoutes(r *gin.Engine, httpClient szx.HTTPDoer, loader kapimcp.SnapshotLoader) {
+	newServices(httpClient, loader).registerREST(r)
 }
 
-type dailySnapshotLoaderFunc func(ctx context.Context, airportCode string, direction string) ([]byte, error)
-
-func (f dailySnapshotLoaderFunc) Load(ctx context.Context, airportCode string, direction string) ([]byte, error) {
-	return f(ctx, airportCode, direction)
-}
-
-func registerRoutes(r *gin.Engine, httpClient szx.HTTPDoer, loader dailySnapshotLoader) {
-	svc := newServices(httpClient, loader)
-	szxClient := svc.szxClient
-	canClient := svc.canClient
-	registry := svc.registry
+// registerREST mounts all REST endpoints on r using the service's shared dependencies.
+func (s *Services) registerREST(r *gin.Engine) {
+	szxClient := s.szxClient
+	canClient := s.canClient
+	registry := s.registry
+	loader := s.loader
 
 	r.Use(corsMiddleware())
 
@@ -283,7 +291,7 @@ func handleSZXWeather(client *szx.Client) gin.HandlerFunc {
 	}
 }
 
-func handleDailyFlights(loader dailySnapshotLoader, airportCode string, direction string) gin.HandlerFunc {
+func handleDailyFlights(loader kapimcp.SnapshotLoader, airportCode string, direction string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
 
@@ -342,7 +350,7 @@ func handleDailyFlights(loader dailySnapshotLoader, airportCode string, directio
 	}
 }
 
-func handleSZXDelayTrend(loader dailySnapshotLoader) gin.HandlerFunc {
+func handleSZXDelayTrend(loader kapimcp.SnapshotLoader) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
 

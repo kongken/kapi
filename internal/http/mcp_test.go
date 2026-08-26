@@ -42,11 +42,9 @@ func TestMCPMountEndToEnd(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	router := gin.New()
-	RegisterRoutes(router, newTestHTTPClient(func(req *nethttp.Request) (*nethttp.Response, error) {
-		t.Fatalf("unexpected upstream HTTP call: %s", req.URL)
-		return nil, nil
-	}))
-	RegisterMCP(router, newTestHTTPClient(func(req *nethttp.Request) (*nethttp.Response, error) {
+	upstreamCalls := 0
+	RegisterAll(router, newTestHTTPClient(func(req *nethttp.Request) (*nethttp.Response, error) {
+		upstreamCalls++
 		body := `{"flightList":[],"type":"cn","currentDate":1,"currentTime":12}`
 		return &nethttp.Response{
 			StatusCode: nethttp.StatusOK,
@@ -182,7 +180,10 @@ func TestMCPMountEndToEnd(t *testing.T) {
 	if !errResult.Result.IsError {
 		t.Fatalf("expected business error as IsError tool result, got: %s", body)
 	}
-	if len(errResult.Result.Content) == 0 || !strings.Contains(errResult.Result.Content[0].Text, "not supported") {
-		t.Fatalf("expected human-readable error content, got: %s", body)
+	if len(errResult.Result.Content) == 0 || !strings.Contains(errResult.Result.Content[0].Text, "airport_not_supported") {
+		t.Fatalf("expected stable-coded error content, got: %s", body)
+	}
+	if upstreamCalls != 0 {
+		t.Fatalf("expected zero upstream HTTP calls during MCP tools/call, got %d", upstreamCalls)
 	}
 }

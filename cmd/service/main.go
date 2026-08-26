@@ -28,8 +28,7 @@ func main() {
 		Service:   "kapi",
 		Config:    svcConfig,
 		Router: func(r *gin.Engine) {
-			apihttp.RegisterRoutes(r, http.DefaultClient)
-			apihttp.RegisterMCP(r, http.DefaultClient)
+			apihttp.RegisterAll(r, http.DefaultClient)
 		},
 		InitFunc: []func() error{
 			startDailyFlightSync(svcConfig, syncer),

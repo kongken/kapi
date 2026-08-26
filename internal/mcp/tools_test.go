@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
@@ -10,15 +11,19 @@ import (
 )
 
 type stubProvider struct {
-	code    string
-	info    airports.AirportInfo
-	flights airports.FlightsResponse
-	weather airports.WeatherResponse
+	code       string
+	info       airports.AirportInfo
+	flights    airports.FlightsResponse
+	flightsErr error
+	weather    airports.WeatherResponse
 }
 
 func (p *stubProvider) Code() string               { return p.code }
 func (p *stubProvider) Info() airports.AirportInfo { return p.info }
 func (p *stubProvider) GetFlights(ctx context.Context, query airports.FlightQuery) (airports.FlightsResponse, error) {
+	if p.flightsErr != nil {
+		return airports.FlightsResponse{}, p.flightsErr
+	}
 	return p.flights, nil
 }
 func (p *stubProvider) GetWeather(ctx context.Context) (airports.WeatherResponse, error) {
@@ -133,11 +138,13 @@ func TestSearchFlightsTrimsRawPayload(t *testing.T) {
 func TestSearchFlightsValidation(t *testing.T) {
 	svc := newTestService()
 
-	if _, _, err := svc.searchFlights(context.Background(), nil, searchFlightsIn{Airport: "szx", Direction: "sideways"}); err == nil {
-		t.Fatal("expected invalid direction error")
+	_, _, err := svc.searchFlights(context.Background(), nil, searchFlightsIn{Airport: "szx", Direction: "sideways"})
+	if err == nil || !strings.Contains(err.Error(), "invalid_query") {
+		t.Fatalf("expected invalid_query-coded error, got %v", err)
 	}
-	if _, _, err := svc.searchFlights(context.Background(), nil, searchFlightsIn{Airport: "pek", Direction: "departure"}); err == nil {
-		t.Fatal("expected unsupported airport error")
+	_, _, err = svc.searchFlights(context.Background(), nil, searchFlightsIn{Airport: "pek", Direction: "departure"})
+	if err == nil || !strings.Contains(err.Error(), "airport_not_supported") {
+		t.Fatalf("expected airport_not_supported-coded error, got %v", err)
 	}
 }
 
@@ -151,6 +158,9 @@ func TestGetFlightStatusFindsAcrossDirections(t *testing.T) {
 	}
 	if out.Matches[0].Flight.FlightNumbers[0] != "CZ3456" {
 		t.Fatalf("unexpected match: %+v", out.Matches[0])
+	}
+	if len(out.Issues) != 0 {
+		t.Fatalf("expected no probe issues from healthy providers, got %+v", out.Issues)
 	}
 
 	_, miss, err := newTestService().getFlightStatus(context.Background(), nil, getFlightStatusIn{FlightNo: "XX0000"})
@@ -217,6 +227,33 @@ func TestGetWeatherTrimsRaw(t *testing.T) {
 	encoded, _ := json.Marshal(out)
 	if strings.Contains(string(encoded), `"x"`) {
 		t.Fatalf("raw upstream payload leaked into weather output")
+	}
+}
+
+func TestGetFlightStatusRecordsUpstreamFailures(t *testing.T) {
+	svc := &service{
+		registry: airports.NewRegistry(&stubProvider{
+			code:       "szx",
+			flightsErr: errors.New("upstream boom"),
+		}),
+		loader: &stubLoader{},
+	}
+
+	_, out, err := svc.getFlightStatus(context.Background(), nil, getFlightStatusIn{FlightNo: "CZ3456"})
+	if err != nil {
+		t.Fatalf("getFlightStatus should not fail on provider errors: %v", err)
+	}
+	if out.Found || len(out.Matches) != 0 {
+		t.Fatalf("expected no matches, got %+v", out)
+	}
+	// Both directions failed and must be reported instead of silently skipped.
+	if len(out.Issues) != 2 {
+		t.Fatalf("expected 2 recorded issues (departure+arrival), got %+v", out.Issues)
+	}
+	for _, issue := range out.Issues {
+		if issue.Airport != "szx" || !strings.Contains(issue.Error, "upstream boom") {
+			t.Fatalf("unexpected issue entry: %+v", issue)
+		}
 	}
 }
 

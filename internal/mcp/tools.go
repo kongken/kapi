@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -11,6 +12,32 @@ import (
 	"github.com/kongken/kapi/internal/airports"
 	"github.com/kongken/kapi/internal/flight"
 )
+
+// Stable error-code prefixes aligned with the REST API vocabulary.
+const (
+	errInvalidQuery        = "invalid_query"
+	errAirportNotSupported = "airport_not_supported"
+	errUpstreamError       = "upstream_error"
+	errSnapshotNotFound    = "daily_snapshot_not_found"
+	errSnapshotUnavailable = "daily_snapshot_unavailable"
+	errDelayTrendFailure   = "delay_trend_unavailable"
+)
+
+// resolveAirport looks up a provider by code, returning a stable-coded error
+// for unsupported airports.
+func resolveAirport(registry *airports.Registry, code string) (airports.Provider, error) {
+	provider, ok := registry.Get(code)
+	if !ok {
+		return nil, fmt.Errorf("%s: airport %q is not supported; use list_airports to see available airports", errAirportNotSupported, code)
+	}
+	return provider, nil
+}
+
+// validDirection is the single direction check reused by every tool that
+// accepts a direction argument.
+func validDirection(direction string) bool {
+	return direction == "departure" || direction == "arrival"
+}
 
 // flightItem is the token-efficient flight representation returned by MCP tools.
 // It mirrors the normalized v2 model but never includes the upstream Raw payloads.
@@ -99,17 +126,17 @@ func (s *service) searchFlights(ctx context.Context, req *gomcp.CallToolRequest,
 		query.Lang = lang
 	}
 	if err := airports.ValidateFlightQuery(query); err != nil {
-		return nil, searchFlightsOut{}, fmt.Errorf("invalid arguments: %w", err)
+		return nil, searchFlightsOut{}, fmt.Errorf("%s: %w", errInvalidQuery, err)
 	}
 
-	provider, ok := s.registry.Get(in.Airport)
-	if !ok {
-		return nil, searchFlightsOut{}, fmt.Errorf("airport %q is not supported; use list_airports to see available airports", in.Airport)
+	provider, err := resolveAirport(s.registry, in.Airport)
+	if err != nil {
+		return nil, searchFlightsOut{}, err
 	}
 
 	response, err := provider.GetFlights(ctx, query)
 	if err != nil {
-		return nil, searchFlightsOut{}, fmt.Errorf("upstream fetch failed for %s %s: %w", in.Airport, in.Direction, err)
+		return nil, searchFlightsOut{}, fmt.Errorf("%s: upstream fetch failed for %s %s: %w", errUpstreamError, in.Airport, in.Direction, err)
 	}
 
 	items := make([]flightItem, 0, len(response.Items))
@@ -134,10 +161,11 @@ type getFlightStatusIn struct {
 }
 
 type getFlightStatusOut struct {
-	Found    bool          `json:"found"`
-	Query    string        `json:"query"`
-	Searched []string      `json:"searched"`
-	Matches  []statusMatch `json:"matches"`
+	Found    bool               `json:"found"`
+	Query    string             `json:"query"`
+	Searched []string           `json:"searched"`
+	Matches  []statusMatch      `json:"matches"`
+	Issues   []statusFetchIssue `json:"issues,omitempty"`
 }
 
 type statusMatch struct {
@@ -146,19 +174,27 @@ type statusMatch struct {
 	Flight    flightItem `json:"flight"`
 }
 
+// statusFetchIssue reports an airport/direction probe that could not be
+// completed, so callers can tell "flight not found" apart from "upstream down".
+type statusFetchIssue struct {
+	Airport   string `json:"airport"`
+	Direction string `json:"direction"`
+	Error     string `json:"error"`
+}
+
 // maxStatusMatches bounds the result size for pathological queries.
 const maxStatusMatches = 20
 
 func (s *service) getFlightStatus(ctx context.Context, req *gomcp.CallToolRequest, in getFlightStatusIn) (*gomcp.CallToolResult, getFlightStatusOut, error) {
 	target := strings.ToUpper(strings.TrimSpace(in.FlightNo))
 	if target == "" {
-		return nil, getFlightStatusOut{}, fmt.Errorf("flightNo must not be empty")
+		return nil, getFlightStatusOut{}, fmt.Errorf("%s: flightNo must not be empty", errInvalidQuery)
 	}
 
 	codes := s.registry.Codes()
 	if requested := strings.ToLower(strings.TrimSpace(deref(in.Airport))); requested != "" {
-		if _, ok := s.registry.Get(requested); !ok {
-			return nil, getFlightStatusOut{}, fmt.Errorf("airport %q is not supported; use list_airports to see available airports", requested)
+		if _, err := resolveAirport(s.registry, requested); err != nil {
+			return nil, getFlightStatusOut{}, err
 		}
 		codes = []string{requested}
 	}
@@ -180,6 +216,13 @@ func (s *service) getFlightStatus(ctx context.Context, req *gomcp.CallToolReques
 				FlightNo:  target,
 			})
 			if err != nil {
+				// Record the failure instead of silently skipping, so a
+				// "not found" answer stays distinguishable from an upstream outage.
+				out.Issues = append(out.Issues, statusFetchIssue{
+					Airport:   code,
+					Direction: direction,
+					Error:     err.Error(),
+				})
 				continue // try next airport/direction
 			}
 			for _, f := range response.Items {
@@ -245,11 +288,11 @@ type getTodayFlightsOut struct {
 
 func (s *service) getTodayFlights(ctx context.Context, req *gomcp.CallToolRequest, in getTodayFlightsIn) (*gomcp.CallToolResult, getTodayFlightsOut, error) {
 	code := strings.ToLower(strings.TrimSpace(in.Airport))
-	if _, ok := s.registry.Get(code); !ok {
-		return nil, getTodayFlightsOut{}, fmt.Errorf("airport %q is not supported; use list_airports to see available airports", in.Airport)
+	if _, err := resolveAirport(s.registry, code); err != nil {
+		return nil, getTodayFlightsOut{}, err
 	}
-	if in.Direction != "departure" && in.Direction != "arrival" {
-		return nil, getTodayFlightsOut{}, fmt.Errorf("direction must be either 'departure' or 'arrival'")
+	if !validDirection(in.Direction) {
+		return nil, getTodayFlightsOut{}, fmt.Errorf("%s: direction must be either 'departure' or 'arrival'", errInvalidQuery)
 	}
 
 	limit := defaultTodayLimit
@@ -265,7 +308,10 @@ func (s *service) getTodayFlights(ctx context.Context, req *gomcp.CallToolReques
 
 	data, err := s.loader.Load(ctx, code, in.Direction)
 	if err != nil {
-		return nil, getTodayFlightsOut{}, fmt.Errorf("today's snapshot for %s %s is unavailable: %w", code, in.Direction, err)
+		if errors.Is(err, flight.ErrDailySnapshotNotFound) {
+			return nil, getTodayFlightsOut{}, fmt.Errorf("%s: today's snapshot for %s %s has not been synced yet", errSnapshotNotFound, code, in.Direction)
+		}
+		return nil, getTodayFlightsOut{}, fmt.Errorf("%s: today's snapshot for %s %s is unavailable: %w", errSnapshotUnavailable, code, in.Direction, err)
 	}
 
 	var snapshot dailySnapshot
@@ -327,14 +373,17 @@ func (s *service) getDelayTrend(ctx context.Context, req *gomcp.CallToolRequest,
 	for _, direction := range []string{"departure", "arrival"} {
 		data, err := s.loader.Load(ctx, code, direction)
 		if err != nil {
-			return nil, flight.DelayTrendResponse{}, fmt.Errorf("today's %s snapshot is unavailable: %w", direction, err)
+			if errors.Is(err, flight.ErrDailySnapshotNotFound) {
+				return nil, flight.DelayTrendResponse{}, fmt.Errorf("%s: today's %s snapshot has not been synced yet", errSnapshotNotFound, direction)
+			}
+			return nil, flight.DelayTrendResponse{}, fmt.Errorf("%s: today's %s snapshot is unavailable: %w", errSnapshotUnavailable, direction, err)
 		}
 		snapshots[direction] = data
 	}
 
 	trend, err := flight.BuildSZXDelayTrend(snapshots)
 	if err != nil {
-		return nil, flight.DelayTrendResponse{}, fmt.Errorf("build delay trend: %w", err)
+		return nil, flight.DelayTrendResponse{}, fmt.Errorf("%s: build delay trend: %w", errDelayTrendFailure, err)
 	}
 	return nil, trend, nil
 }
@@ -361,14 +410,14 @@ type getWeatherOut struct {
 }
 
 func (s *service) getWeather(ctx context.Context, req *gomcp.CallToolRequest, in getWeatherIn) (*gomcp.CallToolResult, getWeatherOut, error) {
-	provider, ok := s.registry.Get(in.Airport)
-	if !ok {
-		return nil, getWeatherOut{}, fmt.Errorf("airport %q is not supported; use list_airports to see available airports", in.Airport)
+	provider, err := resolveAirport(s.registry, in.Airport)
+	if err != nil {
+		return nil, getWeatherOut{}, err
 	}
 
 	response, err := provider.GetWeather(ctx)
 	if err != nil {
-		return nil, getWeatherOut{}, fmt.Errorf("weather fetch failed for %s: %w", in.Airport, err)
+		return nil, getWeatherOut{}, fmt.Errorf("%s: weather fetch failed for %s: %w", errUpstreamError, in.Airport, err)
 	}
 
 	items := make([]weatherItem, 0, len(response.Items))

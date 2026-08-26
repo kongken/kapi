@@ -19,6 +19,13 @@ type SnapshotLoader interface {
 	Load(ctx context.Context, airportCode string, direction string) ([]byte, error)
 }
 
+// SnapshotLoaderFunc adapts a plain function to the SnapshotLoader interface.
+type SnapshotLoaderFunc func(ctx context.Context, airportCode string, direction string) ([]byte, error)
+
+func (f SnapshotLoaderFunc) Load(ctx context.Context, airportCode string, direction string) ([]byte, error) {
+	return f(ctx, airportCode, direction)
+}
+
 // Options configures the kapi MCP server.
 type Options struct {
 	Registry *airports.Registry
