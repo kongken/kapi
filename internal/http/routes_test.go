@@ -235,6 +235,227 @@ func TestV2FlightQueryRouteRejectsUnknownAirport(t *testing.T) {
 	}
 }
 
+func TestV2FlightQueryRouteRejectsUnsupportedZoneForSZX(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	RegisterRoutes(router, newTestHTTPClient(func(req *nethttp.Request) (*nethttp.Response, error) {
+		t.Fatal("unexpected upstream call")
+		return nil, nil
+	}))
+
+	req := httptest.NewRequest(nethttp.MethodGet, "/api/v2/flights?airport=szx&direction=departure&zone=domestic", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	if recorder.Code != nethttp.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"error":"invalid_query"`) {
+		t.Fatalf("expected invalid_query response, got %s", recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), "not supported") {
+		t.Fatalf("expected not-supported message, got %s", recorder.Body.String())
+	}
+}
+
+func TestV2FlightQueryRouteRejectsInvalidZone(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	RegisterRoutes(router, newTestHTTPClient(func(req *nethttp.Request) (*nethttp.Response, error) {
+		t.Fatal("unexpected upstream call")
+		return nil, nil
+	}))
+
+	req := httptest.NewRequest(nethttp.MethodGet, "/api/v2/flights?airport=can&direction=departure&zone=cargo", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	if recorder.Code != nethttp.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"error":"invalid_query"`) {
+		t.Fatalf("expected invalid_query response, got %s", recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), "zone must be either") {
+		t.Fatalf("expected zone validation message, got %s", recorder.Body.String())
+	}
+}
+
+func TestV2FlightQueryRouteFiltersCANZone(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	RegisterRoutes(router, newTestHTTPClient(func(req *nethttp.Request) (*nethttp.Response, error) {
+		body := `{"code":"200","msg":"success","data":{"list":[
+			{"flightNo":"CZ3456","flightDate":"2026-04-28","flightId":"1","airline":"CZ","airlineCn":"南方航空","airlineEn":"China Southern","setoffTimePlan":"2026-04-28 08:30:00","arriTimePlan":"2026-04-28 11:00:00","orgCityCn":"广州","orgCityEn":"Guangzhou","orgCity":"CAN","dstCityCn":"北京","dstCityEn":"Beijing","dstCity":"PEK","terminal":"T2","flightStatusCn":"计划","flightStatusEn":"Scheduled","planeModle":"B738","depOrArr":"D","domesticOrIntl":"D","shareFlight":[],"carouselFLights":[]},
+			{"flightNo":"MU538","flightDate":"2026-04-28","flightId":"2","airline":"MU","airlineCn":"东方航空","airlineEn":"China Eastern","setoffTimePlan":"2026-04-28 10:30:00","arriTimePlan":"2026-04-28 14:05:00","orgCityCn":"广州","orgCityEn":"Guangzhou","orgCity":"CAN","dstCityCn":"东京","dstCityEn":"Tokyo","dstCity":"NRT","terminal":"T1","flightStatusCn":"计划","flightStatusEn":"Scheduled","planeModle":"A359","depOrArr":"D","domesticOrIntl":"I","shareFlight":[],"carouselFLights":[]}
+		]}}`
+		return &nethttp.Response{
+			StatusCode: nethttp.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(body)),
+			Header:     make(nethttp.Header),
+		}, nil
+	}))
+
+	req := httptest.NewRequest(nethttp.MethodGet, "/api/v2/flights?airport=can&direction=departure&zone=international", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	if recorder.Code != nethttp.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `"MU538"`) {
+		t.Fatalf("expected international flight MU538, got %s", body)
+	}
+	if !strings.Contains(body, `"zone":"international"`) {
+		t.Fatalf("expected echo of zone in query, got %s", body)
+	}
+	if strings.Contains(body, `"CZ3456"`) {
+		t.Fatalf("expected domestic flight CZ3456 to be filtered out, got %s", body)
+	}
+}
+
+func TestV2FlightQueryRoutePVGZoneMapsToUpstreamDirection(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	RegisterRoutes(router, newTestHTTPClient(func(req *nethttp.Request) (*nethttp.Response, error) {
+		if err := req.ParseForm(); err != nil {
+			t.Fatalf("parse form: %v", err)
+		}
+		if req.Form.Get("direction") != "3" {
+			t.Fatalf("expected upstream direction 3 for international zone, got %q", req.Form.Get("direction"))
+		}
+		if req.Form.Get("airCities2") != "PVG" {
+			t.Fatalf("expected airCities2=PVG, got %q", req.Form.Get("airCities2"))
+		}
+
+		body := `{"success":true,"status":200,"data":{"pageIndex":1,"pageSize":500,"totalPages":1,"totalItems":1,"flightList":"[{\"peta_rn\":\"1\",\"主航班号\":\"EK303\",\"计划出发时间\":\"2026-08-27 00:05:00\",\"计划到达时间\":\"2026-08-27 08:45:00\",\"出发地\":\"上海 浦东\",\"目的地\":\"迪拜\",\"候机楼\":\"浦东(T2)\",\"状态\":\"实际出发00:54\"}]"}}`
+		return &nethttp.Response{
+			StatusCode: nethttp.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(body)),
+			Header:     make(nethttp.Header),
+		}, nil
+	}))
+
+	req := httptest.NewRequest(nethttp.MethodGet, "/api/v2/flights?airport=pvg&direction=departure&zone=international", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	if recorder.Code != nethttp.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `"airport":"pvg"`) {
+		t.Fatalf("expected airport pvg, got %s", body)
+	}
+	if !strings.Contains(body, `"zone":"international"`) {
+		t.Fatalf("expected zone echo, got %s", body)
+	}
+	if !strings.Contains(body, `"EK303"`) {
+		t.Fatalf("expected EK303 flight, got %s", body)
+	}
+}
+
+func TestV2FlightQueryRoutePVGNoZoneMergesBoth(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	var upstreamDirs []string
+	RegisterRoutes(router, newTestHTTPClient(func(req *nethttp.Request) (*nethttp.Response, error) {
+		_ = req.ParseForm()
+		upstreamDirs = append(upstreamDirs, req.Form.Get("direction"))
+		var list string
+		switch req.Form.Get("direction") {
+		case "1":
+			list = `[{"主航班号":"MU9007","计划出发时间":"2026-08-27 06:15:00","候机楼":"浦东(T1)","状态":"原定"}]`
+		case "3":
+			list = `[{"主航班号":"EK303","计划出发时间":"2026-08-27 00:05:00","候机楼":"浦东(T2)","状态":"原定"}]`
+		}
+		payload, _ := json.Marshal(list)
+		body := `{"success":true,"status":200,"data":{"pageIndex":1,"pageSize":500,"totalPages":1,"totalItems":1,"flightList":` + string(payload) + `}}`
+		return &nethttp.Response{
+			StatusCode: nethttp.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(body)),
+			Header:     make(nethttp.Header),
+		}, nil
+	}))
+
+	req := httptest.NewRequest(nethttp.MethodGet, "/api/v2/airports/pvg/flights?direction=departure", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	if recorder.Code != nethttp.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if !equalStringSlice(upstreamDirs, []string{"1", "3"}) {
+		t.Fatalf("expected both upstream directions 1,3 for no-zone query, got %v", upstreamDirs)
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `"MU9007"`) || !strings.Contains(body, `"EK303"`) {
+		t.Fatalf("expected merged domestic+intl flights, got %s", body)
+	}
+}
+
+func TestV1PVGFlightInfoRoute(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	RegisterRoutes(router, newTestHTTPClient(func(req *nethttp.Request) (*nethttp.Response, error) {
+		_ = req.ParseForm()
+		// flight-number lookups use the official cross-direction query
+		if req.Form.Get("direction") != "" {
+			t.Fatalf("expected empty upstream direction for flight-number query, got %q", req.Form.Get("direction"))
+		}
+		if req.Form.Get("flightNum") != "MU9007" {
+			t.Fatalf("expected flightNum MU9007, got %q", req.Form.Get("flightNum"))
+		}
+
+		body := `{"success":true,"status":200,"data":{"pageIndex":1,"pageSize":500,"totalPages":1,"totalItems":1,"flightList":"[{\"主航班号\":\"MU9007\",\"航向\":\"出发\",\"计划出发时间\":\"2026-08-27 06:15:00\",\"候机楼\":\"浦东(T1)\",\"状态\":\"计划\"}]"}}`
+		return &nethttp.Response{
+			StatusCode: nethttp.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(body)),
+			Header:     make(nethttp.Header),
+		}, nil
+	}))
+
+	req := httptest.NewRequest(nethttp.MethodGet, "/api/v1/pvg/departures?zone=domestic&flightNo=MU9007", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	if recorder.Code != nethttp.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `"MU9007"`) || !strings.Contains(body, `"zone":"domestic"`) {
+		t.Fatalf("unexpected v1 pvg response: %s", body)
+	}
+}
+
+func TestV1PVGFlightInfoRouteRejectsInvalidZone(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	RegisterRoutes(router, newTestHTTPClient(func(req *nethttp.Request) (*nethttp.Response, error) {
+		t.Fatal("unexpected upstream call")
+		return nil, nil
+	}))
+
+	req := httptest.NewRequest(nethttp.MethodGet, "/api/v1/pvg/departures?zone=cargo", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	if recorder.Code != nethttp.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"error":"invalid_query"`) {
+		t.Fatalf("expected invalid_query response, got %s", recorder.Body.String())
+	}
+}
+
 func TestV2AirportListRoute(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -255,6 +476,9 @@ func TestV2AirportListRoute(t *testing.T) {
 	if !strings.Contains(body, `"code":"can"`) {
 		t.Fatalf("expected can airport info, got %s", body)
 	}
+	if !strings.Contains(body, `"code":"pvg"`) {
+		t.Fatalf("expected pvg airport info, got %s", body)
+	}
 	if !strings.Contains(body, `"code":"szx"`) {
 		t.Fatalf("expected szx airport info, got %s", body)
 	}
@@ -264,8 +488,20 @@ func TestV2AirportListRoute(t *testing.T) {
 	if !strings.Contains(body, `"nameCn":"广州白云国际机场"`) {
 		t.Fatalf("expected can nameCn, got %s", body)
 	}
-	if !strings.Contains(body, `"total":2`) {
-		t.Fatalf("expected total 2, got %s", body)
+	if !strings.Contains(body, `"nameCn":"上海浦东国际机场"`) {
+		t.Fatalf("expected pvg nameCn, got %s", body)
+	}
+	if !strings.Contains(body, `"total":3`) {
+		t.Fatalf("expected total 3, got %s", body)
+	}
+	if !strings.Contains(body, `"zones":[]`) {
+		t.Fatalf("expected szx empty zones capability, got %s", body)
+	}
+	if !strings.Contains(body, `"zones":["domestic","international"]`) {
+		t.Fatalf("expected can zones capability, got %s", body)
+	}
+	if strings.Count(body, `"zones":["domestic","international"]`) < 2 {
+		t.Fatalf("expected can and pvg zones capability, got %s", body)
 	}
 }
 
@@ -572,4 +808,16 @@ func TestCANDailyArrivalsRoute(t *testing.T) {
 	if !strings.Contains(recorder.Body.String(), `"direction":"arrival"`) {
 		t.Fatalf("expected arrival direction, got %s", recorder.Body.String())
 	}
+}
+
+func equalStringSlice(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }

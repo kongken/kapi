@@ -59,6 +59,7 @@ type flightItem struct {
 	StatusText           string   `json:"statusText,omitempty"`
 	StatusCode           string   `json:"statusCode,omitempty"`
 	AircraftType         string   `json:"aircraftType,omitempty"`
+	Zone                 string   `json:"zone,omitempty"`
 }
 
 func newFlightItem(f airports.Flight) flightItem {
@@ -80,6 +81,7 @@ func newFlightItem(f airports.Flight) flightItem {
 		StatusText:           f.StatusText,
 		StatusCode:           f.StatusCode,
 		AircraftType:         f.AircraftType,
+		Zone:                 f.Zone,
 	}
 }
 
@@ -104,6 +106,7 @@ type searchFlightsIn struct {
 	Time      *string `json:"time,omitempty" jsonschema:"optional time-of-day filter, numeric HHMM"`
 	FlightNo  *string `json:"flightNo,omitempty" jsonschema:"optional flight number filter, e.g. CZ3456"`
 	Lang      *string `json:"lang,omitempty" jsonschema:"optional response language, 'cn' (default) or 'en'"`
+	Zone      *string `json:"zone,omitempty" jsonschema:"optional domestic/international split: 'domestic' or 'international'; only supported by airports advertising zones"`
 }
 
 type searchFlightsOut struct {
@@ -121,6 +124,7 @@ func (s *service) searchFlights(ctx context.Context, req *gomcp.CallToolRequest,
 		Date:      deref(in.Date),
 		Time:      deref(in.Time),
 		FlightNo:  deref(in.FlightNo),
+		Zone:      deref(in.Zone),
 	}
 	if lang := deref(in.Lang); lang != "" {
 		query.Lang = lang
@@ -132,6 +136,9 @@ func (s *service) searchFlights(ctx context.Context, req *gomcp.CallToolRequest,
 	provider, err := resolveAirport(s.registry, in.Airport)
 	if err != nil {
 		return nil, searchFlightsOut{}, err
+	}
+	if err := airports.ValidateZoneSupport(provider.Info(), query.Zone); err != nil {
+		return nil, searchFlightsOut{}, fmt.Errorf("%s: %w", errInvalidQuery, err)
 	}
 
 	response, err := provider.GetFlights(ctx, query)
@@ -258,6 +265,7 @@ type getTodayFlightsIn struct {
 	Airport   string  `json:"airport" jsonschema:"airport IATA code in lowercase, e.g. 'szx' or 'can'"`
 	Direction string  `json:"direction" jsonschema:"flight direction, either 'departure' or 'arrival'"`
 	Status    *string `json:"status,omitempty" jsonschema:"optional status filter matched against each flight's status text/code (substring match), e.g. '取消', '延误', 'delayed'"`
+	Zone      *string `json:"zone,omitempty" jsonschema:"optional domestic/international split: 'domestic' or 'international'; only filters flights whose snapshot carries a zone"`
 	Limit     *int    `json:"limit,omitempty" jsonschema:"max items returned after filtering (default 20, max 200); counts always cover the full day"`
 }
 
@@ -323,6 +331,13 @@ func (s *service) getTodayFlights(ctx context.Context, req *gomcp.CallToolReques
 	if in.Status != nil {
 		statusFilter = strings.TrimSpace(*in.Status)
 	}
+	zoneFilter := ""
+	if in.Zone != nil {
+		zoneFilter = strings.TrimSpace(*in.Zone)
+	}
+	if zoneFilter != "" && !airports.ValidZone(zoneFilter) {
+		return nil, getTodayFlightsOut{}, fmt.Errorf("%s: zone must be either 'domestic' or 'international'", errInvalidQuery)
+	}
 
 	out := getTodayFlightsOut{
 		Airport:      code,
@@ -345,6 +360,9 @@ func (s *service) getTodayFlights(ctx context.Context, req *gomcp.CallToolReques
 		if statusFilter != "" && !matchesStatus(f, statusFilter) {
 			continue
 		}
+		if zoneFilter != "" && !zoneMatchesSnapshot(f, zoneFilter) {
+			continue
+		}
 		if len(out.Items) < limit {
 			out.Items = append(out.Items, f)
 		}
@@ -355,6 +373,13 @@ func (s *service) getTodayFlights(ctx context.Context, req *gomcp.CallToolReques
 
 func matchesStatus(f snapshotFlight, filter string) bool {
 	return strings.Contains(f.StatusText, filter) || strings.Contains(strings.ToLower(f.StatusCode), strings.ToLower(filter))
+}
+
+// zoneMatchesSnapshot reports whether a snapshot flight satisfies a zone filter.
+// A flight without a recorded zone cannot be confirmed to belong to the
+// requested zone, so it is excluded.
+func zoneMatchesSnapshot(f snapshotFlight, zone string) bool {
+	return f.Zone == zone
 }
 
 // ---------- get_delay_trend ----------

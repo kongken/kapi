@@ -23,13 +23,16 @@ const (
 )
 
 type GetFlightsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Airport       string                 `protobuf:"bytes,1,opt,name=airport,proto3" json:"airport,omitempty"`
-	Direction     string                 `protobuf:"bytes,2,opt,name=direction,proto3" json:"direction,omitempty"`
-	Lang          string                 `protobuf:"bytes,3,opt,name=lang,proto3" json:"lang,omitempty"`
-	Date          string                 `protobuf:"bytes,4,opt,name=date,proto3" json:"date,omitempty"`
-	Time          string                 `protobuf:"bytes,5,opt,name=time,proto3" json:"time,omitempty"`
-	FlightNo      string                 `protobuf:"bytes,6,opt,name=flight_no,json=flightNo,proto3" json:"flight_no,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	Airport   string                 `protobuf:"bytes,1,opt,name=airport,proto3" json:"airport,omitempty"`
+	Direction string                 `protobuf:"bytes,2,opt,name=direction,proto3" json:"direction,omitempty"`
+	Lang      string                 `protobuf:"bytes,3,opt,name=lang,proto3" json:"lang,omitempty"`
+	Date      string                 `protobuf:"bytes,4,opt,name=date,proto3" json:"date,omitempty"`
+	Time      string                 `protobuf:"bytes,5,opt,name=time,proto3" json:"time,omitempty"`
+	FlightNo  string                 `protobuf:"bytes,6,opt,name=flight_no,json=flightNo,proto3" json:"flight_no,omitempty"`
+	// 国内/国际（含港澳台）分流: "domestic" | "international", empty means both.
+	// Only supported by airports that advertise zones in their AirportInfo.
+	Zone          string `protobuf:"bytes,7,opt,name=zone,proto3" json:"zone,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -106,14 +109,23 @@ func (x *GetFlightsRequest) GetFlightNo() string {
 	return ""
 }
 
+func (x *GetFlightsRequest) GetZone() string {
+	if x != nil {
+		return x.Zone
+	}
+	return ""
+}
+
 type QueryFlightsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Airport       string                 `protobuf:"bytes,1,opt,name=airport,proto3" json:"airport,omitempty"`
-	Direction     string                 `protobuf:"bytes,2,opt,name=direction,proto3" json:"direction,omitempty"`
-	Lang          string                 `protobuf:"bytes,3,opt,name=lang,proto3" json:"lang,omitempty"`
-	Date          string                 `protobuf:"bytes,4,opt,name=date,proto3" json:"date,omitempty"`
-	Time          string                 `protobuf:"bytes,5,opt,name=time,proto3" json:"time,omitempty"`
-	FlightNo      string                 `protobuf:"bytes,6,opt,name=flight_no,json=flightNo,proto3" json:"flight_no,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	Airport   string                 `protobuf:"bytes,1,opt,name=airport,proto3" json:"airport,omitempty"`
+	Direction string                 `protobuf:"bytes,2,opt,name=direction,proto3" json:"direction,omitempty"`
+	Lang      string                 `protobuf:"bytes,3,opt,name=lang,proto3" json:"lang,omitempty"`
+	Date      string                 `protobuf:"bytes,4,opt,name=date,proto3" json:"date,omitempty"`
+	Time      string                 `protobuf:"bytes,5,opt,name=time,proto3" json:"time,omitempty"`
+	FlightNo  string                 `protobuf:"bytes,6,opt,name=flight_no,json=flightNo,proto3" json:"flight_no,omitempty"`
+	// 国内/国际（含港澳台）分流: "domestic" | "international", empty means both.
+	Zone          string `protobuf:"bytes,7,opt,name=zone,proto3" json:"zone,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -186,6 +198,13 @@ func (x *QueryFlightsRequest) GetTime() string {
 func (x *QueryFlightsRequest) GetFlightNo() string {
 	if x != nil {
 		return x.FlightNo
+	}
+	return ""
+}
+
+func (x *QueryFlightsRequest) GetZone() string {
+	if x != nil {
+		return x.Zone
 	}
 	return ""
 }
@@ -297,6 +316,7 @@ type FlightsQuery struct {
 	Date          string                 `protobuf:"bytes,3,opt,name=date,proto3" json:"date,omitempty"`
 	Time          string                 `protobuf:"bytes,4,opt,name=time,proto3" json:"time,omitempty"`
 	FlightNo      string                 `protobuf:"bytes,5,opt,name=flight_no,json=flightNo,proto3" json:"flight_no,omitempty"`
+	Zone          string                 `protobuf:"bytes,6,opt,name=zone,proto3" json:"zone,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -366,6 +386,13 @@ func (x *FlightsQuery) GetFlightNo() string {
 	return ""
 }
 
+func (x *FlightsQuery) GetZone() string {
+	if x != nil {
+		return x.Zone
+	}
+	return ""
+}
+
 type Flight struct {
 	state                protoimpl.MessageState `protogen:"open.v1"`
 	FlightNumbers        []string               `protobuf:"bytes,1,rep,name=flight_numbers,json=flightNumbers,proto3" json:"flight_numbers,omitempty"`
@@ -386,8 +413,10 @@ type Flight struct {
 	StatusCode           string                 `protobuf:"bytes,16,opt,name=status_code,json=statusCode,proto3" json:"status_code,omitempty"`
 	AircraftType         string                 `protobuf:"bytes,17,opt,name=aircraft_type,json=aircraftType,proto3" json:"aircraft_type,omitempty"`
 	Raw                  *structpb.Struct       `protobuf:"bytes,18,opt,name=raw,proto3" json:"raw,omitempty"`
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	// 国内/国际（含港澳台）: "domestic" | "international"; empty when unknown.
+	Zone          string `protobuf:"bytes,19,opt,name=zone,proto3" json:"zone,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Flight) Reset() {
@@ -546,25 +575,34 @@ func (x *Flight) GetRaw() *structpb.Struct {
 	return nil
 }
 
+func (x *Flight) GetZone() string {
+	if x != nil {
+		return x.Zone
+	}
+	return ""
+}
+
 var File_airports_v2_flight_proto protoreflect.FileDescriptor
 
 const file_airports_v2_flight_proto_rawDesc = "" +
 	"\n" +
-	"\x18airports/v2/flight.proto\x12\vairports.v2\x1a\x1cgoogle/protobuf/struct.proto\"\xa4\x01\n" +
+	"\x18airports/v2/flight.proto\x12\vairports.v2\x1a\x1cgoogle/protobuf/struct.proto\"\xb8\x01\n" +
 	"\x11GetFlightsRequest\x12\x18\n" +
 	"\aairport\x18\x01 \x01(\tR\aairport\x12\x1c\n" +
 	"\tdirection\x18\x02 \x01(\tR\tdirection\x12\x12\n" +
 	"\x04lang\x18\x03 \x01(\tR\x04lang\x12\x12\n" +
 	"\x04date\x18\x04 \x01(\tR\x04date\x12\x12\n" +
 	"\x04time\x18\x05 \x01(\tR\x04time\x12\x1b\n" +
-	"\tflight_no\x18\x06 \x01(\tR\bflightNo\"\xa6\x01\n" +
+	"\tflight_no\x18\x06 \x01(\tR\bflightNo\x12\x12\n" +
+	"\x04zone\x18\a \x01(\tR\x04zone\"\xba\x01\n" +
 	"\x13QueryFlightsRequest\x12\x18\n" +
 	"\aairport\x18\x01 \x01(\tR\aairport\x12\x1c\n" +
 	"\tdirection\x18\x02 \x01(\tR\tdirection\x12\x12\n" +
 	"\x04lang\x18\x03 \x01(\tR\x04lang\x12\x12\n" +
 	"\x04date\x18\x04 \x01(\tR\x04date\x12\x12\n" +
 	"\x04time\x18\x05 \x01(\tR\x04time\x12\x1b\n" +
-	"\tflight_no\x18\x06 \x01(\tR\bflightNo\"\x9d\x02\n" +
+	"\tflight_no\x18\x06 \x01(\tR\bflightNo\x12\x12\n" +
+	"\x04zone\x18\a \x01(\tR\x04zone\"\x9d\x02\n" +
 	"\x12GetFlightsResponse\x12\x16\n" +
 	"\x06source\x18\x01 \x01(\tR\x06source\x12\x18\n" +
 	"\aairport\x18\x02 \x01(\tR\aairport\x12\x1a\n" +
@@ -573,13 +611,14 @@ const file_airports_v2_flight_proto_rawDesc = "" +
 	"\x05query\x18\x05 \x01(\v2\x19.airports.v2.FlightsQueryR\x05query\x12\x14\n" +
 	"\x05total\x18\x06 \x01(\x05R\x05total\x12)\n" +
 	"\x05items\x18\a \x03(\v2\x13.airports.v2.FlightR\x05items\x12)\n" +
-	"\x03raw\x18\b \x01(\v2\x17.google.protobuf.StructR\x03raw\"\x85\x01\n" +
+	"\x03raw\x18\b \x01(\v2\x17.google.protobuf.StructR\x03raw\"\x99\x01\n" +
 	"\fFlightsQuery\x12\x1c\n" +
 	"\tdirection\x18\x01 \x01(\tR\tdirection\x12\x12\n" +
 	"\x04lang\x18\x02 \x01(\tR\x04lang\x12\x12\n" +
 	"\x04date\x18\x03 \x01(\tR\x04date\x12\x12\n" +
 	"\x04time\x18\x04 \x01(\tR\x04time\x12\x1b\n" +
-	"\tflight_no\x18\x05 \x01(\tR\bflightNo\"\xd2\x05\n" +
+	"\tflight_no\x18\x05 \x01(\tR\bflightNo\x12\x12\n" +
+	"\x04zone\x18\x06 \x01(\tR\x04zone\"\xe6\x05\n" +
 	"\x06Flight\x12%\n" +
 	"\x0eflight_numbers\x18\x01 \x03(\tR\rflightNumbers\x12#\n" +
 	"\rairline_logos\x18\x02 \x03(\tR\fairlineLogos\x124\n" +
@@ -601,7 +640,8 @@ const file_airports_v2_flight_proto_rawDesc = "" +
 	"\vstatus_code\x18\x10 \x01(\tR\n" +
 	"statusCode\x12#\n" +
 	"\raircraft_type\x18\x11 \x01(\tR\faircraftType\x12)\n" +
-	"\x03raw\x18\x12 \x01(\v2\x17.google.protobuf.StructR\x03rawB:Z8github.com/kongken/kapi/pkg/proto/airports/v2;airportsv2b\x06proto3"
+	"\x03raw\x18\x12 \x01(\v2\x17.google.protobuf.StructR\x03raw\x12\x12\n" +
+	"\x04zone\x18\x13 \x01(\tR\x04zoneB:Z8github.com/kongken/kapi/pkg/proto/airports/v2;airportsv2b\x06proto3"
 
 var (
 	file_airports_v2_flight_proto_rawDescOnce sync.Once

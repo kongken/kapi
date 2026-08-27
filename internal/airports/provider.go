@@ -14,7 +14,17 @@ type FlightQuery struct {
 	Date      string `json:"date"`
 	Time      string `json:"time"`
 	FlightNo  string `json:"flightNo"`
+	// Zone splits domestic vs international (incl. HK/MO/TW) flights.
+	// One of "domestic" or "international"; empty means both.
+	// It is only honored by providers that advertise the value in AirportInfo.Zones.
+	Zone string `json:"zone"`
 }
+
+// Zone values for the 国内/国际（含港澳台）flight split.
+const (
+	ZoneDomestic      = "domestic"
+	ZoneInternational = "international"
+)
 
 // Flight is the normalized v2 flight payload.
 type Flight struct {
@@ -35,7 +45,10 @@ type Flight struct {
 	StatusText           string   `json:"statusText"`
 	StatusCode           string   `json:"statusCode"`
 	AircraftType         string   `json:"aircraftType"`
-	Raw                  any      `json:"raw"`
+	// Zone classifies the flight as "domestic" or "international" (incl. HK/MO/TW).
+	// Empty when the provider cannot determine it.
+	Zone string `json:"zone"`
+	Raw  any    `json:"raw"`
 }
 
 // FlightsResponse is the normalized v2 flights response.
@@ -78,6 +91,10 @@ type AirportInfo struct {
 	NameEn     string `json:"nameEn"`
 	City       string `json:"city"`
 	HasWeather bool   `json:"hasWeather"`
+	// Zones lists the supported domestic/international split values
+	// (ZoneDomestic, ZoneInternational). Empty means zone filtering is not
+	// supported and requests carrying a zone are rejected.
+	Zones []string `json:"zones"`
 }
 
 // Provider exposes the normalized airport API surface.
@@ -149,7 +166,40 @@ func ValidateFlightQuery(query FlightQuery) error {
 	if query.Time != "" && !isDigitsOnly(query.Time) {
 		return fmt.Errorf("time must be numeric")
 	}
+	if query.Zone != "" && !ValidZone(query.Zone) {
+		return fmt.Errorf("zone must be either %q or %q", ZoneDomestic, ZoneInternational)
+	}
 	return nil
+}
+
+// ValidZone reports whether v is a supported zone filter value.
+func ValidZone(v string) bool {
+	return v == ZoneDomestic || v == ZoneInternational
+}
+
+// zoneMatches reports whether a flight's zone satisfies the query filter.
+// An empty query zone matches everything; a flight with an unknown (empty) zone
+// is dropped once a specific zone is requested, because its membership cannot
+// be confirmed.
+func zoneMatches(flightZone string, queryZone string) bool {
+	if queryZone == "" {
+		return true
+	}
+	return flightZone == queryZone
+}
+
+// ValidateZoneSupport returns an error when the airport does not advertise
+// support for the requested zone filter. An empty zone always passes.
+func ValidateZoneSupport(info AirportInfo, zone string) error {
+	if zone == "" || !ValidZone(zone) {
+		return nil
+	}
+	for _, supported := range info.Zones {
+		if supported == zone {
+			return nil
+		}
+	}
+	return fmt.Errorf("zone %q is not supported for airport %q", zone, info.Code)
 }
 
 func isDigitsOnly(v string) bool {

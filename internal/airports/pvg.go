@@ -3,44 +3,44 @@ package airports
 import (
 	"context"
 
-	"github.com/kongken/kapi/internal/can"
+	"github.com/kongken/kapi/internal/pvg"
 )
 
-// CANProvider adapts the Guangzhou Baiyun airport client to the v2 provider interface.
-type CANProvider struct {
-	client *can.Client
+// PVGProvider adapts the Shanghai Pudong airport client to the v2 provider
+// interface. It supports the domestic/international (zone) split natively:
+// the upstream site serves domestic and international through distinct
+// direction codes, which the client maps for us.
+type PVGProvider struct {
+	client *pvg.Client
 }
 
-func NewCANProvider(httpClient can.HTTPDoer) *CANProvider {
-	return &CANProvider{client: can.NewClient(httpClient)}
+func NewPVGProvider(httpClient pvg.HTTPDoer) *PVGProvider {
+	return &PVGProvider{client: pvg.NewClient(httpClient)}
 }
 
-func (p *CANProvider) Code() string {
-	return "can"
+func (p *PVGProvider) Code() string {
+	return "pvg"
 }
 
-func (p *CANProvider) Info() AirportInfo {
+func (p *PVGProvider) Info() AirportInfo {
 	return AirportInfo{
-		Code:       "can",
-		NameCn:     "广州白云国际机场",
-		NameEn:     "Guangzhou Baiyun International Airport",
-		City:       "广州",
+		Code:       "pvg",
+		NameCn:     "上海浦东国际机场",
+		NameEn:     "Shanghai Pudong International Airport",
+		City:       "上海",
 		HasWeather: false,
 		Zones:      []string{ZoneDomestic, ZoneInternational},
 	}
 }
 
-func (p *CANProvider) GetFlights(ctx context.Context, query FlightQuery) (FlightsResponse, error) {
-	response, err := p.client.Fetch(ctx, query.Direction, query.Lang, query.Date)
+func (p *PVGProvider) GetFlights(ctx context.Context, query FlightQuery) (FlightsResponse, error) {
+	response, err := p.client.Fetch(ctx, query.Direction, query.Zone, query.Date, query.FlightNo)
 	if err != nil {
 		return FlightsResponse{}, err
 	}
 
 	items := make([]Flight, 0, len(response.Flights))
 	for _, flight := range response.Flights {
-		if !zoneMatches(flight.Zone, query.Zone) {
-			continue
-		}
 		items = append(items, Flight{
 			FlightNumbers:        flight.FlightNumbers,
 			AirlineLogos:         flight.AirlineLogos,
@@ -73,6 +73,8 @@ func (p *CANProvider) GetFlights(ctx context.Context, query FlightQuery) (Flight
 			Direction: query.Direction,
 			Lang:      query.Lang,
 			Date:      query.Date,
+			Time:      query.Time,
+			FlightNo:  query.FlightNo,
 			Zone:      query.Zone,
 		},
 		Total: len(items),
@@ -81,9 +83,9 @@ func (p *CANProvider) GetFlights(ctx context.Context, query FlightQuery) (Flight
 	}, nil
 }
 
-func (p *CANProvider) GetWeather(ctx context.Context) (WeatherResponse, error) {
+func (p *PVGProvider) GetWeather(ctx context.Context) (WeatherResponse, error) {
 	return WeatherResponse{
-		Source:   "baiyunairport",
+		Source:   "shairport",
 		Airport:  p.Code(),
 		Resource: "weather",
 		Total:    0,

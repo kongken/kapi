@@ -12,6 +12,7 @@ import (
 	"github.com/kongken/kapi/internal/can"
 	"github.com/kongken/kapi/internal/flight"
 	kapimcp "github.com/kongken/kapi/internal/mcp"
+	"github.com/kongken/kapi/internal/pvg"
 	"github.com/kongken/kapi/internal/szx"
 )
 
@@ -33,6 +34,7 @@ func RegisterAll(r *gin.Engine, httpClient szx.HTTPDoer) {
 type Services struct {
 	szxClient *szx.Client
 	canClient *can.Client
+	pvgClient *pvg.Client
 	registry  *airports.Registry
 	loader    kapimcp.SnapshotLoader
 }
@@ -46,9 +48,11 @@ func newServices(httpClient szx.HTTPDoer, loader kapimcp.SnapshotLoader) *Servic
 	return &Services{
 		szxClient: szx.NewClient(httpClient),
 		canClient: can.NewClient(httpClient),
+		pvgClient: pvg.NewClient(httpClient),
 		registry: airports.NewRegistry(
 			airports.NewSZXProvider(httpClient),
 			airports.NewCANProvider(httpClient),
+			airports.NewPVGProvider(httpClient),
 		),
 		loader: loader,
 	}
@@ -72,6 +76,7 @@ func registerRoutes(r *gin.Engine, httpClient szx.HTTPDoer, loader kapimcp.Snaps
 func (s *Services) registerREST(r *gin.Engine) {
 	szxClient := s.szxClient
 	canClient := s.canClient
+	pvgClient := s.pvgClient
 	registry := s.registry
 	loader := s.loader
 
@@ -107,6 +112,11 @@ func (s *Services) registerREST(r *gin.Engine) {
 	v1.GET("/can/arrivals", handleCANFlightInfo(canClient, "arrival"))
 	v1.GET("/can/departures/today", handleDailyFlights(loader, "can", "departure"))
 	v1.GET("/can/arrivals/today", handleDailyFlights(loader, "can", "arrival"))
+
+	v1.GET("/pvg/departures", handlePVGFlightInfo(pvgClient, "departure"))
+	v1.GET("/pvg/arrivals", handlePVGFlightInfo(pvgClient, "arrival"))
+	v1.GET("/pvg/departures/today", handleDailyFlights(loader, "pvg", "departure"))
+	v1.GET("/pvg/arrivals/today", handleDailyFlights(loader, "pvg", "arrival"))
 
 	v2 := api.Group("/v2")
 	v2.GET("/airports", handleAirportList(registry))
@@ -177,8 +187,16 @@ func queryAirportFlights(c *gin.Context, registry *airports.Registry, airport st
 		Date:      c.Query("date"),
 		Time:      c.Query("time"),
 		FlightNo:  c.Query("flightNo"),
+		Zone:      c.Query("zone"),
 	}
 	if err := airports.ValidateFlightQuery(query); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "invalid_query",
+			"message": err.Error(),
+		})
+		return
+	}
+	if err := airports.ValidateZoneSupport(provider.Info(), query.Zone); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   "invalid_query",
 			"message": err.Error(),
@@ -264,6 +282,35 @@ func handleCANFlightInfo(client *can.Client, direction string) gin.HandlerFunc {
 		}
 
 		response, err := client.Fetch(c.Request.Context(), direction, lang, c.Query("date"))
+		if err != nil {
+			c.JSON(http.StatusBadGateway, gin.H{
+				"error":   "upstream_error",
+				"message": err.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, response)
+	}
+}
+
+func handlePVGFlightInfo(client *pvg.Client, direction string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		query := pvg.Query{
+			Direction: direction,
+			Zone:      c.Query("zone"),
+			Date:      c.Query("date"),
+			FlightNo:  c.Query("flightNo"),
+		}
+		if query.Zone != "" && !airports.ValidZone(query.Zone) {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error":   "invalid_query",
+				"message": "zone must be either 'domestic' or 'international'",
+			})
+			return
+		}
+
+		response, err := client.Fetch(c.Request.Context(), direction, query.Zone, query.Date, query.FlightNo)
 		if err != nil {
 			c.JSON(http.StatusBadGateway, gin.H{
 				"error":   "upstream_error",

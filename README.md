@@ -35,6 +35,8 @@ Minimal Go/Gin API service with Shenzhen Airport flight proxy endpoints.
    curl 'http://localhost:8080/api/v1/szx/delay-trend'
    curl 'http://localhost:8080/api/v1/szx/weather'
    curl 'http://localhost:8080/api/v2/flights?airport=szx&direction=departure&flightNo=CZ5387'
+   curl 'http://localhost:8080/api/v2/flights?airport=pvg&direction=departure&zone=international'
+   curl 'http://localhost:8080/api/v1/pvg/departures?zone=domestic'
    ```
 
 ## Files
@@ -43,6 +45,8 @@ Minimal Go/Gin API service with Shenzhen Airport flight proxy endpoints.
 - `internal/config`: custom config struct
 - `internal/http`: HTTP route registration
 - `internal/szx`: Shenzhen Airport upstream client and response normalization
+- `internal/can`: Guangzhou Baiyun Airport upstream client and response normalization
+- `internal/pvg`: Shanghai Pudong (PVG) upstream client and response normalization, via the shairport.com official site API (also serves SHA)
 - `proto`: protobuf API definitions managed by buf
 - `pkg/proto`: generated protobuf, gRPC, and Connect code
 - `config.yaml`: local file-based config
@@ -78,20 +82,33 @@ make proto-lint
 
 Supported query parameters:
 
-- `airport`: required airport code, currently `szx` or `can`
+- `airport`: required airport code, currently `szx`, `can` or `pvg`
 - `direction`: required, `departure` or `arrival`
 - `lang`: optional, `cn` or `en`, default `cn`
 - `date`: optional upstream date selector, numeric when provided
 - `time`: optional upstream time selector, numeric when provided
 - `flightNo`: optional flight number filter when supported by the airport provider
-
-Example:
+- `zone`: optional domestic/international split, `domestic` or `international`; empty returns both (incl. HK/MO/TW, which count as `international`). Only honored by airports that advertise the capability in `GET /api/v2/airports` (`zones` field); other airports reject it with `400 invalid_query`.
+  - `pvg` maps zone to the upstream direction codes: `departure`+`domestic` → 1, `departure`+`international` → 3, `arrival`+`domestic` → 2, `arrival`+`international` → 4; empty zone merges both.
 
 ```bash
 curl 'http://localhost:8080/api/v2/flights?airport=szx&direction=departure&lang=en&date=1&time=8&flightNo=CZ5387'
 ```
 
-The response uses the same normalized payload as `GET /api/v2/airports/{airport}/flights`: `source`, `airport`, `resource`, `direction`, `query`, `total`, `items`, and optional `raw`.
+The response uses the same normalized payload as `GET /api/v2/airports/{airport}/flights`: `source`, `airport`, `resource`, `direction`, `query`, `total`, `items`, and optional `raw`. Each item carries an optional `zone` field (`domestic`/`international`) when the provider can determine it.
+
+## 国际/国内分流 (zone)
+
+V2 supports splitting flights by route zone: `domestic` (国内) or `international` (国际/港澳台).
+
+- `GET /api/v2/airports` reports the supported `zones` per airport (empty means the airport has no such dimension).
+- `pvg` (上海浦东) maps zone to the upstream direction codes: `departure+international` and `departure+domestic` become shairport directions `3` and `1` respectively (`arrival`: `4` / `2`); an empty zone merges both, and each normalized item carries its `zone`.
+- `can` supports zone by filtering on the upstream `domesticOrIntl` field.
+- `szx` has no upstream domestic/international dimension: passing `zone` returns `400 invalid_query` instead of silently mixing results.
+
+### PVG specific notes
+
+The PVG client talks to the Shanghai airport official site (`shairport.com`), which also serves SHA over the same endpoint. It requires a browser `User-Agent` and the flights page as `Referer`; no auth. Flight-number lookups use the official site's cross-direction query (`direction=""`) and filter by the upstream 航向 field, so each flight appears exactly once. Daily snapshots (`/api/v1/pvg/*/today`) merge domestic and international with per-flight zones.
 
 ## SZX API
 
