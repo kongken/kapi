@@ -13,6 +13,7 @@ import (
 	"github.com/kongken/kapi/internal/config"
 	"github.com/kongken/kapi/internal/flight"
 	apihttp "github.com/kongken/kapi/internal/http"
+	"github.com/kongken/kapi/internal/pvg"
 	"github.com/kongken/kapi/internal/szx"
 )
 
@@ -22,6 +23,7 @@ func main() {
 	syncer := flight.NewSyncer()
 	syncer.Register("szx", szx.NewDefaultClient())
 	syncer.Register("can", can.NewDefaultClient())
+	syncer.Register("pvg", pvg.NewDefaultClient())
 
 	appConfig := &app.Config{
 		Namespace: "auto",
