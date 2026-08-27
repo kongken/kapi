@@ -13,6 +13,9 @@ message GetFlightsRequest {
   string date = 4;
   string time = 5;
   string flight_no = 6;
+  // 国内/国际（含港澳台）分流: "domestic" | "international", empty means both.
+  // Only supported by airports that advertise zones in their AirportInfo.
+  string zone = 7;
 }
 
 message QueryFlightsRequest {
@@ -22,6 +25,8 @@ message QueryFlightsRequest {
   string date = 4;
   string time = 5;
   string flight_no = 6;
+  // 国内/国际（含港澳台）分流: "domestic" | "international", empty means both.
+  string zone = 7;
 }
 
 message GetFlightsResponse {
@@ -41,6 +46,7 @@ message FlightsQuery {
   string date = 3;
   string time = 4;
   string flight_no = 5;
+  string zone = 6;
 }
 
 message Flight {
@@ -62,4 +68,6 @@ message Flight {
   string status_code = 16;
   string aircraft_type = 17;
   google.protobuf.Struct raw = 18;
+  // 国内/国际（含港澳台）: "domestic" | "international"; empty when unknown.
+  string zone = 19;
 }

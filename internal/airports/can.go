@@ -26,6 +26,7 @@ func (p *CANProvider) Info() AirportInfo {
 		NameEn:     "Guangzhou Baiyun International Airport",
 		City:       "广州",
 		HasWeather: false,
+		Zones:      []string{ZoneDomestic, ZoneInternational},
 	}
 }
 
@@ -37,6 +38,9 @@ func (p *CANProvider) GetFlights(ctx context.Context, query FlightQuery) (Flight
 
 	items := make([]Flight, 0, len(response.Flights))
 	for _, flight := range response.Flights {
+		if !zoneMatches(flight.Zone, query.Zone) {
+			continue
+		}
 		items = append(items, Flight{
 			FlightNumbers:        flight.FlightNumbers,
 			AirlineLogos:         flight.AirlineLogos,
@@ -55,6 +59,7 @@ func (p *CANProvider) GetFlights(ctx context.Context, query FlightQuery) (Flight
 			StatusText:           flight.StatusText,
 			StatusCode:           flight.StatusCode,
 			AircraftType:         flight.AircraftType,
+			Zone:                 flight.Zone,
 			Raw:                  flight.Raw,
 		})
 	}
@@ -68,8 +73,9 @@ func (p *CANProvider) GetFlights(ctx context.Context, query FlightQuery) (Flight
 			Direction: query.Direction,
 			Lang:      query.Lang,
 			Date:      query.Date,
+			Zone:      query.Zone,
 		},
-		Total: response.Total,
+		Total: len(items),
 		Items: items,
 		Raw:   response.Raw,
 	}, nil

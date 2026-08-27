@@ -16,11 +16,13 @@ type stubProvider struct {
 	flights    airports.FlightsResponse
 	flightsErr error
 	weather    airports.WeatherResponse
+	lastQuery  airports.FlightQuery
 }
 
 func (p *stubProvider) Code() string               { return p.code }
 func (p *stubProvider) Info() airports.AirportInfo { return p.info }
 func (p *stubProvider) GetFlights(ctx context.Context, query airports.FlightQuery) (airports.FlightsResponse, error) {
+	p.lastQuery = query
 	if p.flightsErr != nil {
 		return airports.FlightsResponse{}, p.flightsErr
 	}
@@ -146,6 +148,54 @@ func TestSearchFlightsValidation(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "airport_not_supported") {
 		t.Fatalf("expected airport_not_supported-coded error, got %v", err)
 	}
+	_, _, err = svc.searchFlights(context.Background(), nil, searchFlightsIn{Airport: "szx", Direction: "departure", Zone: strPtr("cargo")})
+	if err == nil || !strings.Contains(err.Error(), "invalid_query") {
+		t.Fatalf("expected invalid_query-coded error for bad zone, got %v", err)
+	}
+}
+
+func TestSearchFlightsPassesZoneToProvider(t *testing.T) {
+	provider := &stubProvider{
+		code: "pvg",
+		info: airports.AirportInfo{Code: "pvg", Zones: []string{"domestic", "international"}},
+		flights: airports.FlightsResponse{
+			Source:    "test-source",
+			Airport:   "pvg",
+			Direction: "departure",
+			Items:     []airports.Flight{{FlightNumbers: []string{"MU9007"}, Zone: "international"}},
+		},
+	}
+	svc := &service{
+		registry: airports.NewRegistry(provider),
+		loader:   &stubLoader{},
+	}
+
+	_, out, err := svc.searchFlights(context.Background(), nil, searchFlightsIn{
+		Airport:   "pvg",
+		Direction: "departure",
+		Zone:      strPtr("international"),
+	})
+	if err != nil {
+		t.Fatalf("searchFlights: %v", err)
+	}
+	if provider.lastQuery.Zone != "international" {
+		t.Fatalf("expected zone passed to provider, got %q", provider.lastQuery.Zone)
+	}
+	if len(out.Items) != 1 || out.Items[0].Zone != "international" {
+		t.Fatalf("expected zone on returned item, got %+v", out.Items)
+	}
+}
+
+func TestSearchFlightsRejectsUnsupportedZoneForAirport(t *testing.T) {
+	svc := newTestService() // szx advertises no zones
+	_, _, err := svc.searchFlights(context.Background(), nil, searchFlightsIn{
+		Airport:   "szx",
+		Direction: "departure",
+		Zone:      strPtr("domestic"),
+	})
+	if err == nil || !strings.Contains(err.Error(), "invalid_query") || !strings.Contains(err.Error(), "not supported") {
+		t.Fatalf("expected invalid_query not-supported error, got %v", err)
+	}
 }
 
 func TestGetFlightStatusFindsAcrossDirections(t *testing.T) {
@@ -197,6 +247,57 @@ func TestGetTodayFlightsSummaryAndFilter(t *testing.T) {
 	}
 	if limited.Returned != 1 || limited.Total != 3 {
 		t.Fatalf("limit should only cap items, got %+v", limited)
+	}
+}
+
+func TestGetTodayFlightsZoneFilter(t *testing.T) {
+	svc := &service{
+		registry: airports.NewRegistry(&stubProvider{
+			code: "pvg",
+			info: airports.AirportInfo{Code: "pvg", Zones: []string{"domestic", "international"}},
+		}),
+	}
+	// seed a snapshot carrying per-flight zones
+	svc.loader = &stubLoader{data: map[string][]byte{
+		"pvg:departure": []byte(`{
+		  "source": "shairport",
+		  "direction": "departure",
+		  "total": 3,
+		  "flights": [
+		    {"flightNumbers":["MU5101"],"plannedDepartureTime":"07:00","zone":"domestic"},
+		    {"flightNumbers":["MU9007"],"plannedDepartureTime":"09:00","zone":"international"},
+		    {"flightNumbers":["CA930"],"plannedDepartureTime":"11:00","zone":"international"}
+		  ]
+		}`),
+	}}
+
+	_, out, err := svc.getTodayFlights(context.Background(), nil, getTodayFlightsIn{
+		Airport:   "pvg",
+		Direction: "departure",
+		Zone:      strPtr("international"),
+	})
+	if err != nil {
+		t.Fatalf("getTodayFlights: %v", err)
+	}
+	if out.Total != 3 {
+		t.Fatalf("expected full-day total 3, got %d", out.Total)
+	}
+	if out.Returned != 2 || len(out.Items) != 2 {
+		t.Fatalf("expected 2 international items, got %d", out.Returned)
+	}
+	for _, item := range out.Items {
+		if item.Zone != "international" {
+			t.Fatalf("expected only international items, got %+v", item)
+		}
+	}
+
+	_, _, err = svc.getTodayFlights(context.Background(), nil, getTodayFlightsIn{
+		Airport:   "pvg",
+		Direction: "departure",
+		Zone:      strPtr("cargo"),
+	})
+	if err == nil || !strings.Contains(err.Error(), "invalid_query") {
+		t.Fatalf("expected invalid_query-coded error for bad zone, got %v", err)
 	}
 }
 

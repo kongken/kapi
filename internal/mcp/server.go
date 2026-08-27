@@ -55,7 +55,7 @@ func NewServer(opts Options) *gomcp.Server {
 
 	gomcp.AddTool(server, &gomcp.Tool{
 		Name:        "search_flights",
-		Description: "Search real-time flights at an airport. Requires airport (IATA code, e.g. 'szx' for Shenzhen Bao'an, 'can' for Guangzhou Baiyun) and direction ('departure' or 'arrival'). Optional filters: date (numeric YYYYMMDD where supported), time (numeric HHMM), flightNo, lang ('cn' default or 'en').",
+		Description: "Search real-time flights at an airport. Requires airport (IATA code, e.g. 'szx' for Shenzhen Bao'an, 'can' for Guangzhou Baiyun) and direction ('departure' or 'arrival'). Optional filters: date (numeric YYYYMMDD where supported), time (numeric HHMM), flightNo, lang ('cn' default or 'en'), zone ('domestic' or 'international' — only supported by airports that advertise zones, e.g. 'can').",
 	}, svc.searchFlights)
 
 	gomcp.AddTool(server, &gomcp.Tool{
@@ -65,7 +65,7 @@ func NewServer(opts Options) *gomcp.Server {
 
 	gomcp.AddTool(server, &gomcp.Tool{
 		Name:        "get_today_flights",
-		Description: "Get today's full-day flight schedule snapshot (from the periodically synced S3/cache store) for an airport and direction. Returns status counts plus optionally filtered items. Use this instead of search_flights when the question is about whole-day aggregates such as total cancellations.",
+		Description: "Get today's full-day flight schedule snapshot (from the periodically synced S3/cache store) for an airport and direction. Returns status counts plus optionally filtered items (by status text or by domestic/international zone where the snapshot records it). Use this instead of search_flights when the question is about whole-day aggregates such as total cancellations.",
 	}, svc.getTodayFlights)
 
 	gomcp.AddTool(server, &gomcp.Tool{

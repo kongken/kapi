@@ -147,24 +147,27 @@ type UpstreamListResponse struct {
 }
 
 type Flight struct {
-	FlightNumbers    []string       `json:"flightNumbers"`
-	AirlineLogos     []string       `json:"airlineLogos"`
-	PlannedDeparture string         `json:"plannedDepartureTime"`
-	PlannedArrival   string         `json:"plannedArrivalTime"`
-	ActualDeparture  string         `json:"actualDepartureTime"`
-	ActualArrival    string         `json:"actualArrivalTime"`
-	DepartureAirport string         `json:"departureAirport"`
-	ArrivalAirport   string         `json:"arrivalAirport"`
-	Terminal         string         `json:"terminal"`
-	Gate             string         `json:"gate"`
-	GateDescription  string         `json:"gateDescription"`
-	BaggageBelt      string         `json:"baggageBelt"`
-	CheckInArea      string         `json:"checkInArea"`
-	CheckInWindow    string         `json:"checkInWindow"`
-	StatusText       string         `json:"statusText"`
-	StatusCode       string         `json:"statusCode"`
-	AircraftType     string         `json:"aircraftType"`
-	Raw              UpstreamFlight `json:"raw"`
+	FlightNumbers    []string `json:"flightNumbers"`
+	AirlineLogos     []string `json:"airlineLogos"`
+	PlannedDeparture string   `json:"plannedDepartureTime"`
+	PlannedArrival   string   `json:"plannedArrivalTime"`
+	ActualDeparture  string   `json:"actualDepartureTime"`
+	ActualArrival    string   `json:"actualArrivalTime"`
+	DepartureAirport string   `json:"departureAirport"`
+	ArrivalAirport   string   `json:"arrivalAirport"`
+	Terminal         string   `json:"terminal"`
+	Gate             string   `json:"gate"`
+	GateDescription  string   `json:"gateDescription"`
+	BaggageBelt      string   `json:"baggageBelt"`
+	CheckInArea      string   `json:"checkInArea"`
+	CheckInWindow    string   `json:"checkInWindow"`
+	StatusText       string   `json:"statusText"`
+	StatusCode       string   `json:"statusCode"`
+	AircraftType     string   `json:"aircraftType"`
+	// Zone classifies the flight as "domestic" or "international" (incl. HK/MO/TW);
+	// empty when the upstream payload does not say (domesticOrIntl is blank).
+	Zone string         `json:"zone"`
+	Raw  UpstreamFlight `json:"raw"`
 }
 
 type Response struct {
@@ -358,6 +361,7 @@ func normalizeResponse(direction string, lang string, query FlightRequest, upstr
 			StatusText:       statusText,
 			StatusCode:       "",
 			AircraftType:     item.PlaneModle,
+			Zone:             domesticOrIntlToZone(item.DomesticOrIntl),
 			Raw:              item,
 		})
 	}
@@ -368,6 +372,20 @@ func normalizeResponse(direction string, lang string, query FlightRequest, upstr
 		Query:     query,
 		Total:     len(flights),
 		Flights:   flights,
+	}
+}
+
+// domesticOrIntlToZone maps the Baiyun upstream field to the v2 zone vocabulary:
+// "D" is domestic; any other non-empty value (international incl. HK/MO/TW) is
+// "international". Empty stays empty (unknown).
+func domesticOrIntlToZone(v string) string {
+	switch v {
+	case "D":
+		return "domestic"
+	case "":
+		return ""
+	default:
+		return "international"
 	}
 }
 

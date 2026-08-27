@@ -113,6 +113,22 @@ func TestFormatTime(t *testing.T) {
 	}
 }
 
+func TestDomesticOrIntlToZone(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"D", "domestic"},
+		{"I", "international"},
+		{"", ""},
+	}
+	for _, tt := range tests {
+		if got := domesticOrIntlToZone(tt.input); got != tt.expected {
+			t.Fatalf("domesticOrIntlToZone(%q) = %q, want %q", tt.input, got, tt.expected)
+		}
+	}
+}
+
 func TestFetchNormalizesResponse(t *testing.T) {
 	cache := &memoryCache{}
 	upstreamCalls := 0
@@ -188,6 +204,9 @@ func TestFetchNormalizesResponse(t *testing.T) {
 	}
 	if flight.AircraftType != "B738" {
 		t.Fatalf("expected aircraft type B738, got %q", flight.AircraftType)
+	}
+	if flight.Zone != "domestic" {
+		t.Fatalf("expected zone domestic, got %q", flight.Zone)
 	}
 	if len(flight.AirlineLogos) != 1 || !strings.Contains(flight.AirlineLogos[0], "/logos/CZ.png") {
 		t.Fatalf("expected resolved logo URL, got %v", flight.AirlineLogos)

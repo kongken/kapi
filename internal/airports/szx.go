@@ -2,6 +2,7 @@ package airports
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/kongken/kapi/internal/szx"
 )
@@ -26,10 +27,18 @@ func (p *SZXProvider) Info() AirportInfo {
 		NameEn:     "Shenzhen Bao'an International Airport",
 		City:       "深圳",
 		HasWeather: true,
+		Zones:      []string{},
 	}
 }
 
 func (p *SZXProvider) GetFlights(ctx context.Context, query FlightQuery) (FlightsResponse, error) {
+	// The Shenzhen upstream has no domestic/international dimension, so a zone
+	// filter cannot be honored. Reject it explicitly instead of silently
+	// returning a mixed result set.
+	if query.Zone != "" {
+		return FlightsResponse{}, fmt.Errorf("zone %q is not supported for airport %q", query.Zone, p.Code())
+	}
+
 	upstreamQuery := szx.Query{
 		Type:        query.Lang,
 		CurrentDate: query.Date,
@@ -76,6 +85,7 @@ func (p *SZXProvider) GetFlights(ctx context.Context, query FlightQuery) (Flight
 			Date:      response.Query.CurrentDate,
 			Time:      response.Query.CurrentTime,
 			FlightNo:  response.Query.FlightNo,
+			Zone:      query.Zone,
 		},
 		Total: response.Total,
 		Items: items,
