@@ -11,6 +11,7 @@ import (
 	"github.com/kongken/kapi/internal/airports"
 	"github.com/kongken/kapi/internal/can"
 	"github.com/kongken/kapi/internal/flight"
+	"github.com/kongken/kapi/internal/ingest"
 	kapimcp "github.com/kongken/kapi/internal/mcp"
 	"github.com/kongken/kapi/internal/pvg"
 	"github.com/kongken/kapi/internal/szx"
@@ -20,13 +21,28 @@ func RegisterRoutes(r *gin.Engine, httpClient szx.HTTPDoer) {
 	NewServices(httpClient).registerREST(r)
 }
 
+// RegisterOptions configures optional protected interfaces.
+type RegisterOptions struct {
+	SZXIngestToken string
+}
+
 // RegisterAll mounts the REST API and the MCP endpoint on r, backed by ONE
 // shared set of provider/client/loader instances so both surfaces serve
 // identical data.
 func RegisterAll(r *gin.Engine, httpClient szx.HTTPDoer) {
+	RegisterAllWithOptions(r, httpClient, RegisterOptions{})
+}
+
+func RegisterAllWithOptions(r *gin.Engine, httpClient szx.HTTPDoer, options RegisterOptions) {
 	svc := NewServices(httpClient)
 	svc.registerREST(r)
 	svc.registerMCP(r)
+
+	szxIngestor := ingest.NewSZXFlightIngestor(
+		ingest.SnapshotLoaderFunc(flight.LoadDailySnapshotForDate),
+		ingest.SnapshotWriterFunc(flight.SaveDailySnapshot),
+	)
+	registerSZXFlightIngestRoute(r, options.SZXIngestToken, szxIngestor)
 }
 
 // Services bundles the airport data sources used by both the REST routes and

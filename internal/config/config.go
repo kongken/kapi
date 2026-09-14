@@ -10,6 +10,7 @@ type ServiceConfig struct {
 
 type SZXConfig struct {
 	DailySyncInterval string `yaml:"daily_sync_interval"`
+	CollectionMode    string `yaml:"collection_mode"`
 }
 
 func (c *ServiceConfig) Print() {

@@ -2,3 +2,7 @@
 .agent_context
 .codex
 bin
+**/node_modules
+**/.wrangler
+**/dist
+**/.dev.vars

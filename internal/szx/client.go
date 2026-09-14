@@ -114,12 +114,15 @@ type Flight struct {
 }
 
 type Response struct {
-	Source    string           `json:"source"`
-	Direction string           `json:"direction"`
-	Query     Query            `json:"query"`
-	Total     int              `json:"total"`
-	Flights   []Flight         `json:"flights"`
-	Raw       UpstreamResponse `json:"raw"`
+	Source      string           `json:"source"`
+	Direction   string           `json:"direction"`
+	Query       Query            `json:"query"`
+	Total       int              `json:"total"`
+	Flights     []Flight         `json:"flights"`
+	Raw         UpstreamResponse `json:"raw"`
+	RunID       string           `json:"runId,omitempty"`
+	ServiceDate string           `json:"serviceDate,omitempty"`
+	CollectedAt time.Time        `json:"collectedAt,omitzero"`
 }
 
 func NewClient(httpClient HTTPDoer) *Client {
@@ -394,10 +397,8 @@ func resolveLogoURL(path string) string {
 }
 
 func (c *Client) FetchDailyFlights(ctx context.Context, direction string) ([]byte, error) {
-	flightsByKey := make(map[string]Flight)
-	orderedKeys := make([]string, 0)
-
-	for currentTime := 0; currentTime <= 12; currentTime++ {
+	responses := make([]Response, 0, DailyTimeSlots)
+	for currentTime := range DailyTimeSlots {
 		response, err := c.Fetch(ctx, direction, Query{
 			Type:        "cn",
 			CurrentDate: "1",
@@ -406,40 +407,10 @@ func (c *Client) FetchDailyFlights(ctx context.Context, direction string) ([]byt
 		if err != nil {
 			return nil, fmt.Errorf("fetch daily flights currentTime=%d: %w", currentTime, err)
 		}
-
-		for _, item := range response.Flights {
-			key := dailyFlightKey(item)
-			current, exists := flightsByKey[key]
-			if !exists {
-				orderedKeys = append(orderedKeys, key)
-				flightsByKey[key] = item
-				continue
-			}
-			flightsByKey[key] = preferredDailyFlight(current, item)
-		}
+		responses = append(responses, response)
 	}
 
-	mergedFlights := make([]Flight, 0, len(orderedKeys))
-	for _, key := range orderedKeys {
-		mergedFlights = append(mergedFlights, flightsByKey[key])
-	}
-
-	data, err := json.Marshal(Response{
-		Source:    "szairport",
-		Direction: direction,
-		Query: Query{
-			Type:        "cn",
-			CurrentDate: "1",
-			CurrentTime: "0-12",
-		},
-		Total:   len(mergedFlights),
-		Flights: mergedFlights,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return data, nil
+	return json.Marshal(mergeDailyResponses(DailyCollection{Direction: direction}, responses))
 }
 
 func NewDefaultClient() *Client {
