@@ -2,3 +2,8 @@ bin/
 openspec/
 .claude/
 .cache/
+workers/**/node_modules/
+workers/**/.wrangler/
+workers/**/dist/
+workers/**/.dev.vars
+workers/**/.env

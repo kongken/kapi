@@ -47,6 +47,7 @@ Minimal Go/Gin API service with Shenzhen Airport flight proxy endpoints.
 - `internal/szx`: Shenzhen Airport upstream client and response normalization
 - `internal/can`: Guangzhou Baiyun Airport upstream client and response normalization
 - `internal/pvg`: Shanghai Pudong (PVG) upstream client and response normalization, via the shairport.com official site API (also serves SHA)
+- `workers/szx-collector`: scheduled Cloudflare Worker that collects raw SZX pages and submits complete batches to kapi
 - `proto`: protobuf API definitions managed by buf
 - `pkg/proto`: generated protobuf, gRPC, and Connect code
 - `config.yaml`: local file-based config
