@@ -10,6 +10,7 @@ otel: {}
 
 szx:
   daily_sync_interval: "30m"
+  collection_mode: "pull"
 
 store:
   redis:

@@ -145,6 +145,9 @@ The weather endpoint wraps the Shenzhen Airport JSONP weather interface and retu
 ## Flight Sync Jobs
 
 - `szx.daily_sync_interval`: all-day snapshot generation interval for the merged `today` payloads, default `30m`
+- `szx.collection_mode`: `pull` (default) fetches SZX in-process; `push` disables the in-process SZX fetcher and requires a remote collector
+
+CAN and PVG remain in the in-process sync loop in both modes.
 
 The daily snapshots are stored at:
 
@@ -156,3 +159,46 @@ The latest daily snapshot is also cached in Redis with keys like:
 - `szx:flights:daily:{airport}:{direction}:{YYYY-MM-DD}`
 
 The date portion uses the `Asia/Shanghai` timezone so the `today` endpoints align with Shenzhen local time.
+
+## SZX collector ingestion
+
+A remote collector can submit complete raw SZX collection runs to:
+
+```text
+POST /internal/v1/ingest/szx/flights
+Authorization: Bearer <KAPI_SZX_INGEST_TOKEN>
+Idempotency-Key: <runId>
+Content-Type: application/json
+```
+
+The route is registered only when `KAPI_SZX_INGEST_TOKEN` is non-empty. When `szx.collection_mode` is `push`, startup also fails if that token is missing.
+
+Submit one request per direction. Each request must contain exactly one page for every `currentTime` value from `0` through `12`. The abbreviated example below shows one page; production requests must include all 13:
+
+```json
+{
+  "schemaVersion": 1,
+  "runId": "c91abb94-dc37-40aa-bc68-d362e5375690",
+  "source": "szairport",
+  "airport": "szx",
+  "direction": "departure",
+  "serviceDate": "2026-09-14",
+  "collectedAt": "2026-09-14T06:40:00Z",
+  "pages": [
+    {
+      "currentTime": 0,
+      "payload": {
+        "flightList": [],
+        "type": "cn",
+        "flag": "D",
+        "currentDate": 1,
+        "currentTime": 0
+      }
+    }
+  ]
+}
+```
+
+`serviceDate` must match `collectedAt` in `Asia/Shanghai`, and the `Idempotency-Key` header must equal `runId`. kapi validates the complete batch, normalizes and deduplicates it with the existing SZX domain logic, rejects older collections, then writes a versioned S3 object, `latest.json`, and the Redis cache. Repeating the current `runId` is safe and returns `200` with `duplicate: true`; a new collection returns `201`.
+
+Keep the token in a Cloudflare Worker secret and a Kubernetes Secret; do not put it in the request URL or commit it to the repository.

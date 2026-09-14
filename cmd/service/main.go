@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
 	"time"
 
 	"butterfly.orx.me/core/app"
@@ -17,23 +19,23 @@ import (
 	"github.com/kongken/kapi/internal/szx"
 )
 
+const szxIngestTokenEnvironmentVariable = "KAPI_SZX_INGEST_TOKEN"
+
 func main() {
 	svcConfig := &config.ServiceConfig{}
-
-	syncer := flight.NewSyncer()
-	syncer.Register("szx", szx.NewDefaultClient())
-	syncer.Register("can", can.NewDefaultClient())
-	syncer.Register("pvg", pvg.NewDefaultClient())
+	szxIngestToken := os.Getenv(szxIngestTokenEnvironmentVariable)
 
 	appConfig := &app.Config{
 		Namespace: "auto",
 		Service:   "kapi",
 		Config:    svcConfig,
 		Router: func(r *gin.Engine) {
-			apihttp.RegisterAll(r, http.DefaultClient)
+			apihttp.RegisterAllWithOptions(r, http.DefaultClient, apihttp.RegisterOptions{
+				SZXIngestToken: szxIngestToken,
+			})
 		},
 		InitFunc: []func() error{
-			startDailyFlightSync(svcConfig, syncer),
+			startDailyFlightSync(svcConfig, szxIngestToken),
 		},
 	}
 
@@ -41,8 +43,27 @@ func main() {
 	application.Run()
 }
 
-func startDailyFlightSync(svcConfig *config.ServiceConfig, syncer *flight.Syncer) func() error {
+func startDailyFlightSync(svcConfig *config.ServiceConfig, szxIngestToken string) func() error {
 	return func() error {
+		collectionMode := svcConfig.SZX.CollectionMode
+		if collectionMode == "" {
+			collectionMode = "pull"
+		}
+
+		syncer := flight.NewSyncer()
+		switch collectionMode {
+		case "pull":
+			syncer.Register("szx", szx.NewDefaultClient())
+		case "push":
+			if szxIngestToken == "" {
+				return fmt.Errorf("%s is required when szx.collection_mode is push", szxIngestTokenEnvironmentVariable)
+			}
+		default:
+			return fmt.Errorf("unsupported szx.collection_mode %q", collectionMode)
+		}
+		syncer.Register("can", can.NewDefaultClient())
+		syncer.Register("pvg", pvg.NewDefaultClient())
+
 		intervalStr := svcConfig.SZX.DailySyncInterval
 		if intervalStr == "" {
 			intervalStr = "30m"
@@ -53,6 +74,7 @@ func startDailyFlightSync(svcConfig *config.ServiceConfig, syncer *flight.Syncer
 			interval = 30 * time.Minute
 		}
 
+		slog.Info("configured SZX collection", "mode", collectionMode)
 		go syncer.StartDailySync(context.Background(), interval)
 		return nil
 	}

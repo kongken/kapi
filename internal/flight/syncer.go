@@ -1,14 +1,9 @@
 package flight
 
 import (
-	"bytes"
 	"context"
 	"log/slog"
 	"time"
-
-	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
-
-	"butterfly.orx.me/core/store/s3"
 )
 
 const s3ConfigKey = "flight"
@@ -71,27 +66,12 @@ func (s *Syncer) syncDailyAll(ctx context.Context) {
 }
 
 func (s *Syncer) saveDailySnapshot(ctx context.Context, airportCode string, direction string, data []byte) {
-	now := time.Now()
-	storeDailySnapshotInCache(ctx, getDailySnapshotCache(), DailySnapshotCacheKey(airportCode, direction, now), data)
-	s.putObject(ctx, DailySnapshotLatestKey(airportCode, direction, now), data)
-	s.putObject(ctx, DailySnapshotVersionedKey(airportCode, direction, now), data)
-}
-
-func (s *Syncer) putObject(ctx context.Context, key string, data []byte) {
-	client := s3.GetClient(s3ConfigKey)
-	bucket := s3.GetBucket(s3ConfigKey)
-	contentType := "application/json"
-
-	_, err := client.PutObject(ctx, &awss3.PutObjectInput{
-		Bucket:      &bucket,
-		Key:         &key,
-		Body:        bytes.NewReader(data),
-		ContentType: &contentType,
-	})
-	if err != nil {
-		slog.Error("failed to save to s3", "key", key, "error", err)
-		return
+	if err := SaveDailySnapshot(ctx, DailySnapshot{
+		AirportCode: airportCode,
+		Direction:   direction,
+		CollectedAt: time.Now(),
+		Data:        data,
+	}); err != nil {
+		slog.Error("failed to save daily flights", "airport", airportCode, "direction", direction, "error", err)
 	}
-
-	slog.Info("saved to s3", "key", key)
 }
